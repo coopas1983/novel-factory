@@ -65,20 +65,23 @@ jobs:
           print("WROTE", p, "bytes=", len(raw))
           PY
 
-      - name: Validate diff
-        run: git diff --check
+      - name: Stage and validate diff
+        env:
+          TARGET_PATH: ${{ inputs.target_path }}
+        run: |
+          git add -- "$TARGET_PATH"
+          git diff --cached --check
+          git diff --cached --stat
 
       - name: Commit and push if changed
         env:
-          TARGET_PATH: ${{ inputs.target_path }}
           COMMIT_MESSAGE: ${{ inputs.commit_message }}
         run: |
-          if git diff --quiet -- "$TARGET_PATH"; then
+          if git diff --cached --quiet; then
             echo "NO_CHANGES"
             exit 0
           fi
           git config user.name "novel-factory-bot"
           git config user.email "actions@users.noreply.github.com"
-          git add -- "$TARGET_PATH"
           git commit -m "$COMMIT_MESSAGE"
           git push
