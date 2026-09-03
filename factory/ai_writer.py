@@ -20,7 +20,7 @@ def config_from_env():
     if provider=="anthropic":
         return WriterConfig("anthropic",os.getenv("ANTHROPIC_MODEL","claude-sonnet-4-20250514"),os.getenv("ANTHROPIC_API_KEY",""))
     if provider=="gemini":
-        return WriterConfig("gemini",os.getenv("GEMINI_MODEL","gemini-2.5-flash"),os.getenv("GOOGLE_API_KEY",""))
+        return WriterConfig("gemini",os.getenv("GEMINI_MODEL","gemini-3.6-flash"),os.getenv("GOOGLE_API_KEY",""))
     return WriterConfig("none","","")
 
 def build_prompt(bible, beat, memory):
@@ -47,6 +47,35 @@ def _post(url, headers, payload):
     with urllib.request.urlopen(req,timeout=120) as r:
         return json.loads(r.read().decode())
 
+def _get_json(url):
+    req=urllib.request.Request(url,method="GET")
+    with urllib.request.urlopen(req,timeout=60) as r:
+        return json.loads(r.read().decode())
+
+def gemini_available_models(api_key):
+    url=f"https://generativelanguage.googleapis.com/v1beta/models?key={api_key}"
+    data=_get_json(url)
+    out=[]
+    for m in data.get("models",[]):
+        methods=m.get("supportedGenerationMethods",[])
+        if "generateContent" in methods:
+            out.append(m.get("name","").replace("models/",""))
+    return out
+
+def choose_gemini_model(api_key, preferred):
+    available=gemini_available_models(api_key)
+    # Prefer explicit stable models, then latest alias, then any text Gemini model.
+    candidates=[preferred,"gemini-3.8-flash","gemini-3.7-flash","gemini-3.6-flash",
+                "gemini-3.5-flash","gemini-flash-latest","gemini-2.5-flash"]
+    for c in candidates:
+        if c in available:
+            return c, available
+    fallback=next((m for m in available if m.startswith("gemini-") and "image" not in m
+                   and "tts" not in m and "live" not in m and "embedding" not in m),None)
+    if fallback:
+        return fallback, available
+    raise RuntimeError("GEMINI_MODEL_BLOCKED: no generateContent Gemini model available for this API key")
+
 def generate(cfg, prompt):
     if not cfg.api_key:
         raise RuntimeError(f"AI_WRITER_BLOCKED: {cfg.provider} API key is missing")
@@ -62,9 +91,14 @@ def generate(cfg, prompt):
                     "messages":[{"role":"user","content":prompt}]})
         return data["content"][0]["text"]
     if cfg.provider=="gemini":
-        url=f"https://generativelanguage.googleapis.com/v1beta/models/{cfg.model}:generateContent?key={cfg.api_key}"
-        data=_post(url,{"Content-Type":"application/json"},
-                   {"system_instruction":{"parts":[{"text":SYSTEM}]},
-                    "contents":[{"parts":[{"text":prompt}]}]})
+        model, available = choose_gemini_model(cfg.api_key, cfg.model)
+        url=f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={cfg.api_key}"
+        try:
+            data=_post(url,{"Content-Type":"application/json"},
+                       {"system_instruction":{"parts":[{"text":SYSTEM}]},
+                        "contents":[{"parts":[{"text":prompt}]}]})
+        except urllib.error.HTTPError as e:
+            body=e.read().decode("utf-8","replace")
+            raise RuntimeError(f"GEMINI_HTTP_{e.code}: model={model}; {body[:700]}") from e
         return data["candidates"][0]["content"]["parts"][0]["text"]
     raise RuntimeError("AI_WRITER_BLOCKED: set NOVEL_FACTORY_PROVIDER to openai, anthropic, or gemini")

@@ -47,3 +47,9 @@ Adds a manual GitHub Actions workflow. It reads `GOOGLE_API_KEY` only from GitHu
 runs the full unit-test suite, creates a fresh market-selected pilot book, asks Gemini for the real
 chapter 1 manuscript, applies first-pass quality gates, and commits only the generated `books/`
 result back to the repository. The secret itself is never written to the repository.
+
+## v0.9.1 Gemini model discovery fix
+Before generation the factory now calls Gemini's models endpoint using the configured API key,
+filters for models supporting generateContent, and selects an actually available model.
+Preferred stable model is gemini-3.6-flash; if unavailable it falls back through current Flash
+models. HTTP failures now include the selected model and Gemini response body for diagnosis.
