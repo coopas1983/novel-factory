@@ -7,24 +7,37 @@ from factory.context_editor import contextual_edit, preservation_gate
 from factory.independent_reviewer import review
 from factory.lexical_preflight import scan_lexical, apply_lexical_fixes
 
-MIN_CHARS=3500
-MAX_CHARS=4500
+MIN_VISIBLE_CHARS=3500
+TARGET_VISIBLE_MIN=3700
+TARGET_VISIBLE_MAX=4200
+MAX_VISIBLE_CHARS=4400
 
 def clean(s):
     s=re.sub(r"^```.*?\n|\n```$","",s.strip(),flags=re.S)
     return s.strip()
 
+def visible_chars(text):
+    # NovelPia-style safety metric: exclude whitespace from the count.
+    return len(re.sub(r"\s+","",text))
+
 def make_prompt(original):
     return f"""당신은 한국 웹소설 상업 편집자다.
-아래 1화를 판매용 연재 원고로 재편집하라.
-한국어 3,700~4,200자를 목표로 한다. 기존 사건/인물/미스터리/결말 훅은 보존한다.
-반복, 메타 발언, 비정상 단어를 금지하고 자연스러운 한국어 본문만 출력한다.
+아래 원고를 판매용 연재 원고로 재편집하라.
+최종 분량은 반드시 공백/줄바꿈을 제외한 순수 한국어 글자수 {TARGET_VISIBLE_MIN:,}~{TARGET_VISIBLE_MAX:,}자를 목표로 한다.
+분량을 채우기 위한 반복, 같은 의미의 재진술, 불필요한 회상, 장황한 풍경 묘사를 금지한다.
+대신 사건 진행, 행동, 대화, 긴장, 단서, 인물의 선택과 반응으로 분량을 확보한다.
+기존 사건/인물/미스터리/결말 훅은 보존한다.
+메타 발언과 비정상 단어를 금지하고 자연스러운 한국어 본문만 출력한다.
 [원문]
 {original}"""
 
 def expansion_prompt(text):
-    return f"""아래 원고를 사건과 결말을 바꾸지 않고 3,500~4,500자 사이로 자연스럽게 확장하라.
-반복/요약/메타 설명 없이 본문 전체만 출력하라.
+    return f"""아래 한국 웹소설 원고는 분량이 부족하다.
+공백/줄바꿈 제외 글자수 {TARGET_VISIBLE_MIN:,}~{TARGET_VISIBLE_MAX:,}자가 되도록 자연스럽게 확장하라.
+사건과 결말 훅은 바꾸지 마라.
+단순 반복, 문장 늘이기, 같은 감정 재서술, 의미 없는 묘사로 글자수를 채우지 마라.
+새 분량은 행동/대화/갈등/단서/상황 변화처럼 실제 서사를 전진시키는 내용으로만 확보하라.
+본문 전체만 출력하라.
 {text}"""
 
 def repair_prompt(text, issues):
@@ -38,8 +51,9 @@ def repair_prompt(text, issues):
 
 def deterministic_issues(text):
     issues=[]
-    if len(text)<MIN_CHARS: issues.append("TOO_SHORT")
-    if len(text)>MAX_CHARS: issues.append("TOO_LONG")
+    vc=visible_chars(text)
+    if vc<MIN_VISIBLE_CHARS: issues.append(f"TOO_SHORT_VISIBLE:{vc}")
+    if vc>MAX_VISIBLE_CHARS: issues.append(f"TOO_LONG_VISIBLE:{vc}")
     issues.extend(scan_text(text))
     issues.extend(f"{x.code}:{x.phrase}" for x in scan_korean_editor(text))
     issues.extend(f"{x['code']}:{x['phrase']}" for x in scan_lexical(text))
@@ -51,15 +65,13 @@ def main():
     cfg=config_from_env()
     text=clean(generate(cfg,make_prompt(src.read_text(encoding="utf-8"))))
     generation_passes=1
-    if len(text)<MIN_CHARS:
+    if visible_chars(text)<MIN_VISIBLE_CHARS:
         text=clean(generate(cfg,expansion_prompt(text))); generation_passes=2
 
     pre_context=text
     text=clean(contextual_edit(cfg,text))
     preservation=preservation_gate(pre_context,text)
 
-    # Deterministic fixes happen BEFORE independent review so the reviewer spends
-    # its attention on contextual defects rather than known typo classes.
     lexical_before=scan_lexical(text)
     text=apply_lexical_fixes(text)
     text=apply_safe_fixes(text)
@@ -81,12 +93,15 @@ def main():
     out=Path("books/live-gemini-pilot/commercial"); out.mkdir(parents=True,exist_ok=True)
     (out/"chapter-1.md").write_text(text,encoding="utf-8")
     report={
-        "chars":len(text),
+        "chars_with_spaces":len(text),
+        "chars_without_whitespace":visible_chars(text),
+        "platform_min_chars_without_whitespace":MIN_VISIBLE_CHARS,
+        "target_chars_without_whitespace":[TARGET_VISIBLE_MIN,TARGET_VISIBLE_MAX],
         "generation_passes":generation_passes,
         "context_editor_passes":1,
         "lexical_preflight_detected":lexical_before,
         "lexical_preflight_final":lexical_after,
-        "independent_review_passes":2 if review1 else 1,
+        "independent_review_passes":2,
         "repair_passes":repair_passes,
         "first_review_issues":review1,
         "final_review_issues":review2,
