@@ -1,0 +1,43 @@
+name: Novel Factory - Gemini First Chapter
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  write-first-chapter:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      NOVEL_FACTORY_PROVIDER: gemini
+      GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+      GEMINI_MODEL: gemini-2.5-flash
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Run tests
+        run: python -m unittest discover -s tests
+
+      - name: Generate one real AI chapter
+        run: python -m factory.github_first_chapter
+
+      - name: Commit generated result
+        run: |
+          git config user.name "novel-factory-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add books/
+          if git diff --cached --quiet; then
+            echo "No generated changes."
+          else
+            git commit -m "Generate first Gemini novel chapter"
+            git push
+          fi
