@@ -1,7 +1,10 @@
 {
-  "chars": 4340,
+  "chars": 4080,
   "generation_passes": 1,
+  "context_editor_passes": 1,
+  "preservation_ratio": 0.9857,
   "issues": [],
+  "context_editor": "PASS",
   "final_editor": "PASS",
   "gate": "PASS"
 }
