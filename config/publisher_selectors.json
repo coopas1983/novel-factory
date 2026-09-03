@@ -1,0 +1,19 @@
+{
+  "novelpia": {
+    "write_url": "https://novelpia.com/mynovel/all/write/450743",
+    "title": "#content_subject",
+    "category": "#content_cate",
+    "visibility": "#content_adult",
+    "reservation": "#content_open",
+    "date": "#content_date",
+    "hour": "#content_time",
+    "minute": "#content_min",
+    "paste_mode": "#paste_mode",
+    "body_source": "#summernote",
+    "body_editor": ".note-editable"
+  },
+  "quarterfull": {
+    "studio_url": "https://quarterfull.io/studio-cursor",
+    "status": "authenticated but current landing page is new-work/start screen; existing work editor route not yet resolved"
+  }
+}
