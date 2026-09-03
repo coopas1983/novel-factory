@@ -1,0 +1,6 @@
+{
+  "name":"novel-factory-browser-publisher",
+  "private":true,
+  "version":"0.11.0",
+  "dependencies":{"playwright":"^1.55.0"}
+}
