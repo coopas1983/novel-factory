@@ -58,3 +58,8 @@ models. HTTP failures now include the selected model and Gemini response body fo
 Transient Gemini HTTP 429/500/502/503/504 responses now trigger exponential-backoff retries.
 After three failed attempts on a model, the writer automatically fails over to another available
 generateContent Gemini model. Only after up to five eligible models fail does the factory stop.
+
+## v0.9.3 Retired-model failover fix
+Known Gemini 2.5 models are excluded for new-user fallback. A model-specific HTTP 404 is now
+treated as an unavailable-model signal and the factory continues to the next eligible model
+instead of stopping the entire run.

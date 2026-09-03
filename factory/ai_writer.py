@@ -66,12 +66,13 @@ def choose_gemini_model(api_key, preferred):
     available=gemini_available_models(api_key)
     # Prefer explicit stable models, then latest alias, then any text Gemini model.
     candidates=[preferred,"gemini-3.8-flash","gemini-3.7-flash","gemini-3.6-flash",
-                "gemini-3.5-flash","gemini-flash-latest","gemini-2.5-flash"]
+                "gemini-3.5-flash","gemini-flash-latest"]
     for c in candidates:
         if c in available:
             return c, available
-    fallback=next((m for m in available if m.startswith("gemini-") and "image" not in m
-                   and "tts" not in m and "live" not in m and "embedding" not in m),None)
+    fallback=next((m for m in available if m.startswith("gemini-") and not m.startswith("gemini-2.5")
+                   and "image" not in m and "tts" not in m and "live" not in m
+                   and "embedding" not in m),None)
     if fallback:
         return fallback, available
     raise RuntimeError("GEMINI_MODEL_BLOCKED: no generateContent Gemini model available for this API key")
@@ -100,7 +101,7 @@ def generate(cfg, prompt):
         preferred, available=choose_gemini_model(cfg.api_key,cfg.model)
         ordered=[preferred]+[m for m in available if m!=preferred and m.startswith("gemini-")
                              and "image" not in m and "tts" not in m and "live" not in m
-                             and "embedding" not in m]
+                             and "embedding" not in m and not m.startswith("gemini-2.5")]
         # Avoid trying an excessive catalog; enough to survive transient capacity issues.
         ordered=ordered[:5]
         failures=[]
@@ -113,6 +114,9 @@ def generate(cfg, prompt):
                     body=e.read().decode("utf-8","replace")
                     failures.append({"model":model,"attempt":attempt,"code":e.code,"body":body[:250]})
                     # transient server/capacity/rate conditions: backoff, then model failover
+                    if e.code == 404:
+                        print(f"GEMINI_SKIP_UNAVAILABLE model={model} http=404")
+                        break
                     if e.code in (429,500,502,503,504):
                         if attempt<3:
                             delay=(2**attempt)+random.uniform(0,1)
