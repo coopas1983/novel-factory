@@ -3,18 +3,14 @@ name: Factory Patch Bridge
 on:
   workflow_dispatch:
     inputs:
-      target_path:
-        description: "Repository file path to create/replace"
-        required: true
-        type: string
-      content_b64:
-        description: "UTF-8 file content encoded as base64"
+      patch_bundle_b64:
+        description: "Base64 JSON bundle: {files:[{path,content_b64}], deletes:[]}"
         required: true
         type: string
       commit_message:
         description: "Commit message"
         required: false
-        default: "Apply factory patch"
+        default: "Apply factory patch bundle"
         type: string
 
 permissions:
@@ -28,52 +24,59 @@ jobs:
   patch:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Validate target path
+      - name: Apply validated patch bundle
         env:
-          TARGET_PATH: ${{ inputs.target_path }}
+          PATCH_BUNDLE_B64: ${{ inputs.patch_bundle_b64 }}
         run: |
           python - <<'PY'
-          import os
-          from pathlib import PurePosixPath
-          p=os.environ["TARGET_PATH"].strip()
-          q=PurePosixPath(p)
-          if not p or p.startswith("/") or ".." in q.parts:
-              raise SystemExit("UNSAFE_TARGET_PATH")
-          if p == ".git" or p.startswith(".git/"):
-              raise SystemExit("BLOCKED_TARGET_PATH")
-          print("TARGET_OK", p)
+          import os, json, base64
+          from pathlib import Path, PurePosixPath
+
+          raw=base64.b64decode(os.environ["PATCH_BUNDLE_B64"], validate=True)
+          bundle=json.loads(raw.decode("utf-8"))
+          files=bundle.get("files", [])
+          deletes=bundle.get("deletes", [])
+          if not isinstance(files,list) or not isinstance(deletes,list):
+              raise SystemExit("INVALID_BUNDLE")
+          if len(files)+len(deletes)>50:
+              raise SystemExit("TOO_MANY_PATCHES")
+
+          def safe(path):
+              if not isinstance(path,str) or not path or path.startswith("/"):
+                  return False
+              q=PurePosixPath(path)
+              return ".." not in q.parts and not (path==".git" or path.startswith(".git/"))
+
+          seen=set()
+          for item in files:
+              path=item.get("path")
+              if not safe(path) or path in seen: raise SystemExit("UNSAFE_OR_DUPLICATE_PATH")
+              seen.add(path)
+              data=base64.b64decode(item["content_b64"], validate=True)
+              data.decode("utf-8")
+              p=Path(path); p.parent.mkdir(parents=True,exist_ok=True); p.write_bytes(data)
+              print("WROTE", path, len(data))
+
+          for path in deletes:
+              if not safe(path) or path in seen: raise SystemExit("UNSAFE_OR_DUPLICATE_PATH")
+              seen.add(path)
+              p=Path(path)
+              if p.exists():
+                  p.unlink()
+                  print("DELETED", path)
           PY
 
-      - name: Decode patch content
-        env:
-          TARGET_PATH: ${{ inputs.target_path }}
-          CONTENT_B64: ${{ inputs.content_b64 }}
+      - name: Stage and validate
         run: |
-          python - <<'PY'
-          import os, base64
-          from pathlib import Path
-          p=Path(os.environ["TARGET_PATH"])
-          p.parent.mkdir(parents=True, exist_ok=True)
-          raw=base64.b64decode(os.environ["CONTENT_B64"], validate=True)
-          raw.decode("utf-8")
-          p.write_bytes(raw)
-          print("WROTE", p, "bytes=", len(raw))
-          PY
-
-      - name: Stage and validate diff
-        env:
-          TARGET_PATH: ${{ inputs.target_path }}
-        run: |
-          git add -- "$TARGET_PATH"
+          git add -A
           git diff --cached --check
           git diff --cached --stat
 
-      - name: Commit and push if changed
+      - name: Commit and push
         env:
           COMMIT_MESSAGE: ${{ inputs.commit_message }}
         run: |
