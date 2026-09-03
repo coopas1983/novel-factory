@@ -1,0 +1,31 @@
+name: NovelPia Real Episode Prepare
+
+on:
+  workflow_dispatch:
+
+jobs:
+  prepare-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install browser
+        working-directory: browser_publisher
+        run: |
+          npm install
+          npx playwright install --with-deps chromium
+      - name: Prepare real episode 1 without submit
+        working-directory: browser_publisher
+        env:
+          NOVELPIA_STORAGE_STATE_B64: ${{ secrets.NOVELPIA_STORAGE_STATE_B64 }}
+          NOVELPIA_WRITE_URL: https://novelpia.com/mynovel/all/write/450743
+        run: node novelpia_prepare_real.js
+      - name: Upload preparation report
+        uses: actions/upload-artifact@v4
+        with:
+          name: novelpia-real-episode-prep
+          path: browser_publisher/reports/novelpia-real-episode-prep.json
+          retention-days: 3
