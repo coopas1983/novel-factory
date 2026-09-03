@@ -23,7 +23,8 @@ def main():
 [원문]
 {original}
 """
-    cfg=config_from_env()\n    text=clean(generate(cfg,prompt))
+    cfg=config_from_env()
+    text=clean(generate(cfg,prompt))
     issues=[]
     if len(text)<MIN_CHARS: issues.append("TOO_SHORT")
     if len(text)>MAX_CHARS: issues.append("TOO_LONG")
