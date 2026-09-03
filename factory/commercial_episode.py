@@ -1,6 +1,6 @@
 import os, re, json
 from pathlib import Path
-from factory.ai_writer import generate_text
+from factory.ai_writer import config_from_env, generate
 
 MIN_CHARS=3500
 MAX_CHARS=4500
@@ -23,7 +23,7 @@ def main():
 [원문]
 {original}
 """
-    text=clean(generate_text(prompt))
+    cfg=config_from_env()\n    text=clean(generate(cfg,prompt))
     issues=[]
     if len(text)<MIN_CHARS: issues.append("TOO_SHORT")
     if len(text)>MAX_CHARS: issues.append("TOO_LONG")
