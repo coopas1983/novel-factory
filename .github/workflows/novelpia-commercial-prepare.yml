@@ -1,0 +1,30 @@
+name: NovelPia Commercial Episode Prepare
+
+on:
+  workflow_dispatch:
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install browser dependencies
+        working-directory: browser_publisher
+        run: |
+          npm install
+          npx playwright install --with-deps chromium
+      - name: Fill and verify commercial episode without submitting
+        working-directory: browser_publisher
+        env:
+          NOVELPIA_STORAGE_STATE_B64: ${{ secrets.NOVELPIA_STORAGE_STATE_B64 }}
+        run: node novelpia_prepare_commercial.js
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: novelpia-commercial-prep-report
+          path: browser_publisher/reports/novelpia-commercial-prep.json
+          retention-days: 3
