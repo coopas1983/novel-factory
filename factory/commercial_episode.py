@@ -5,10 +5,10 @@ from factory.text_hygiene import scan_text
 from factory.korean_editor import apply_safe_fixes, scan_korean_editor
 from factory.context_editor import contextual_edit, preservation_gate
 from factory.independent_reviewer import review
+from factory.lexical_preflight import scan_lexical, apply_lexical_fixes
 
 MIN_CHARS=3500
 MAX_CHARS=4500
-TARGET_MIN=3700
 
 def clean(s):
     s=re.sub(r"^```.*?\n|\n```$","",s.strip(),flags=re.S)
@@ -42,6 +42,7 @@ def deterministic_issues(text):
     if len(text)>MAX_CHARS: issues.append("TOO_LONG")
     issues.extend(scan_text(text))
     issues.extend(f"{x.code}:{x.phrase}" for x in scan_korean_editor(text))
+    issues.extend(f"{x['code']}:{x['phrase']}" for x in scan_lexical(text))
     return sorted(set(issues))
 
 def main():
@@ -56,6 +57,11 @@ def main():
     pre_context=text
     text=clean(contextual_edit(cfg,text))
     preservation=preservation_gate(pre_context,text)
+
+    # Deterministic fixes happen BEFORE independent review so the reviewer spends
+    # its attention on contextual defects rather than known typo classes.
+    lexical_before=scan_lexical(text)
+    text=apply_lexical_fixes(text)
     text=apply_safe_fixes(text)
 
     review1=review(cfg,text)
@@ -65,9 +71,10 @@ def main():
         text=clean(generate(cfg,repair_prompt(text,review1)))
         repair_passes=1
         preservation += preservation_gate(before_repair,text)
-        text=apply_safe_fixes(text)
+        text=apply_lexical_fixes(apply_safe_fixes(text))
 
     review2=review(cfg,text)
+    lexical_after=scan_lexical(text)
     issues=sorted(set(preservation + deterministic_issues(text)))
     if review2: issues.append("INDEPENDENT_REVIEW_BLOCK")
 
@@ -77,11 +84,14 @@ def main():
         "chars":len(text),
         "generation_passes":generation_passes,
         "context_editor_passes":1,
+        "lexical_preflight_detected":lexical_before,
+        "lexical_preflight_final":lexical_after,
         "independent_review_passes":2 if review1 else 1,
         "repair_passes":repair_passes,
         "first_review_issues":review1,
         "final_review_issues":review2,
         "issues":issues,
+        "lexical_preflight":"PASS" if not lexical_after else "BLOCK",
         "independent_reviewer":"PASS" if not review2 else "BLOCK",
         "gate":"PASS" if not issues else "BLOCK",
     }
