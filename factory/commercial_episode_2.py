@@ -9,6 +9,7 @@ from factory.lexical_preflight import scan_lexical, apply_lexical_fixes
 
 BOOK=Path("books/live-gemini-pilot"); EPISODE=2
 MIN_VISIBLE_CHARS=3500; TARGET_VISIBLE_MIN=3700; TARGET_VISIBLE_MAX=4200; MAX_VISIBLE_CHARS=4400
+MAX_EXPANSION_PASSES=3
 
 def clean(s):
     s=re.sub(r"^```.*?\n|\n```$","",s.strip(),flags=re.S); return s.strip()
@@ -40,9 +41,16 @@ def make_prompt(c1,bible,ep,memory):
 {c1}"""
 
 def expansion_prompt(text):
-    return f"""아래 2화 원고를 공백/줄바꿈 제외 {TARGET_VISIBLE_MIN}~{TARGET_VISIBLE_MAX}자로 확장하라.
-1화 연속성과 사건/결말 훅은 유지한다. 반복이나 묘사 늘이기 대신 행동/대화/긴장/단서/선택으로만 분량을 확보한다.
+    current=visible_chars(text)
+    need=max(0,TARGET_VISIBLE_MIN-current)
+    return f"""아래 2화 원고는 현재 공백/줄바꿈 제외 {current}자다.
+최종 원고를 공백/줄바꿈 제외 {TARGET_VISIBLE_MIN}~{TARGET_VISIBLE_MAX}자로 확장하라.
+최소 {need}자 이상을 실질적인 새 서사로 보강해야 한다.
+기존 원고를 축약하거나 삭제해서는 안 된다. 기존 사건 순서와 결말 훅을 유지한다.
+추가 분량은 행동/대화/긴장 상승/새 단서/인물의 선택과 결과로만 만든다.
+같은 감정 반복, 같은 정보 재진술, 풍경 늘이기, 요약문, 메타 발언은 금지한다.
 본문 전체만 출력한다.
+[현재 원고]
 {text}"""
 
 def repair_prompt(text,issues):
@@ -78,8 +86,16 @@ def deterministic_issues(text):
 def main():
     c1,bible,ep,memory=load_context(); cfg=config_from_env()
     text=clean(generate(cfg,make_prompt(c1,bible,ep,memory))); generation_passes=1
-    if visible_chars(text)<MIN_VISIBLE_CHARS:
-        text=clean(generate(cfg,expansion_prompt(text))); generation_passes=2
+    expansion_passes=0
+    while visible_chars(text)<MIN_VISIBLE_CHARS and expansion_passes<MAX_EXPANSION_PASSES:
+        before_expand=text
+        candidate=clean(generate(cfg,expansion_prompt(text)))
+        expansion_passes += 1
+        generation_passes += 1
+        # Never accept an "expansion" that shrinks the manuscript.
+        if visible_chars(candidate) <= visible_chars(before_expand):
+            continue
+        text=candidate
     before=text; text=clean(contextual_edit(cfg,text)); preservation=preservation_gate(before,text)
     lexical_before=scan_lexical(text); text=apply_lexical_fixes(apply_safe_fixes(text))
     review1=review(cfg,text); repair_passes=0
@@ -94,9 +110,10 @@ def main():
     (out/"chapter-2.md").write_text(text,encoding="utf-8")
     report={"episode":2,"chars_with_spaces":len(text),"chars_without_whitespace":visible_chars(text),
       "platform_min_chars_without_whitespace":MIN_VISIBLE_CHARS,"target_chars_without_whitespace":[TARGET_VISIBLE_MIN,TARGET_VISIBLE_MAX],
-      "generation_passes":generation_passes,"repair_passes":repair_passes,"lexical_preflight_detected":lexical_before,
-      "lexical_preflight_final":lexical_after,"first_review_issues":review1,"final_review_issues":review2,
-      "continuity_issues":continuity,"issues":issues,"lexical_preflight":"PASS" if not lexical_after else "BLOCK",
+      "generation_passes":generation_passes,"expansion_passes":expansion_passes,"repair_passes":repair_passes,
+      "lexical_preflight_detected":lexical_before,"lexical_preflight_final":lexical_after,
+      "first_review_issues":review1,"final_review_issues":review2,"continuity_issues":continuity,"issues":issues,
+      "lexical_preflight":"PASS" if not lexical_after else "BLOCK",
       "independent_reviewer":"PASS" if not review2 else "BLOCK","continuity_reviewer":"PASS" if not continuity else "BLOCK",
       "gate":"PASS" if not issues else "BLOCK"}
     (out/"chapter-2-quality.json").write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding="utf-8")
