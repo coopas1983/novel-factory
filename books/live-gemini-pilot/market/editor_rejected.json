@@ -1,0 +1,109 @@
+[
+  {
+    "title": "소형 연예기획사에서 팀장가 되었다",
+    "genre": "오피스판타지",
+    "trend_engine": "성공",
+    "hook": "소형 연예기획사에서 타인의 미완성 목표를 해결하면 새로운 능력을 얻는 규칙을 발견한 주인공이 무너진 팀을 정상에 올린다.",
+    "market_fit": 90,
+    "originality": 76,
+    "series_potential": 87,
+    "emotion": 71,
+    "clarity": 93,
+    "source_strategy": {
+      "positive": [
+        "한 줄로 이해되는 강한 전제",
+        "성장/성공의 가시적 진행",
+        "직업·생활공간과 장르 장치 결합",
+        "시리즈 확장성",
+        "감정적 관계축"
+      ],
+      "penalties": [
+        "단순 회귀만으로 차별화",
+        "유명작 고유설정과 유사",
+        "초반 설명 과다",
+        "성장 보상이 늦음"
+      ]
+    },
+    "factory_score": 83.5,
+    "editor": {
+      "passed": false,
+      "score": 77.1,
+      "title_score": 40,
+      "reasons": [
+        "독창성 기준 미달",
+        "한국어 조사/문형이 부자연스러움"
+      ]
+    }
+  },
+  {
+    "title": "중고 거래 회사에서 감독가 되었다",
+    "genre": "감성미스터리",
+    "trend_engine": "성장",
+    "hook": "중고 거래 회사에서 평범한 직업 기술이 초현실 사건 해결 능력이 되는 규칙을 발견한 주인공이 회사를 살린다.",
+    "market_fit": 89,
+    "originality": 75,
+    "series_potential": 90,
+    "emotion": 70,
+    "clarity": 84,
+    "source_strategy": {
+      "positive": [
+        "한 줄로 이해되는 강한 전제",
+        "성장/성공의 가시적 진행",
+        "직업·생활공간과 장르 장치 결합",
+        "시리즈 확장성",
+        "감정적 관계축"
+      ],
+      "penalties": [
+        "단순 회귀만으로 차별화",
+        "유명작 고유설정과 유사",
+        "초반 설명 과다",
+        "성장 보상이 늦음"
+      ]
+    },
+    "factory_score": 82.1,
+    "editor": {
+      "passed": false,
+      "score": 75.7,
+      "title_score": 40,
+      "reasons": [
+        "독창성 기준 미달",
+        "한국어 조사/문형이 부자연스러움"
+      ]
+    }
+  },
+  {
+    "title": "오래된 아파트 관리소에서 에이스가 되었다",
+    "genre": "스포츠판타지",
+    "trend_engine": "성장",
+    "hook": "오래된 아파트 관리소에서 평범한 직업 기술이 초현실 사건 해결 능력이 되는 규칙을 발견한 주인공이 사라진 사람을 찾는다.",
+    "market_fit": 87,
+    "originality": 77,
+    "series_potential": 78,
+    "emotion": 80,
+    "clarity": 90,
+    "source_strategy": {
+      "positive": [
+        "한 줄로 이해되는 강한 전제",
+        "성장/성공의 가시적 진행",
+        "직업·생활공간과 장르 장치 결합",
+        "시리즈 확장성",
+        "감정적 관계축"
+      ],
+      "penalties": [
+        "단순 회귀만으로 차별화",
+        "유명작 고유설정과 유사",
+        "초반 설명 과다",
+        "성장 보상이 늦음"
+      ]
+    },
+    "factory_score": 82.1,
+    "editor": {
+      "passed": false,
+      "score": 84.9,
+      "title_score": 100,
+      "reasons": [
+        "독창성 기준 미달"
+      ]
+    }
+  }
+]

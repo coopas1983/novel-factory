@@ -1,0 +1,9 @@
+{
+  "status": "REAL_AI_CHAPTER_1_COMPLETE",
+  "provider": "gemini",
+  "model": "gemini-3.6-flash",
+  "title": "자정 이후의 콜센터",
+  "chapter_chars": 2724,
+  "quality_issues": [],
+  "next": "human_quality_read_then_10_chapter_live_run"
+}

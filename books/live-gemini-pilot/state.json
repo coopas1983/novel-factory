@@ -1,0 +1,19 @@
+{
+  "slug": "live-gemini-pilot",
+  "status": "EDITOR_GATE_OK",
+  "raw_candidates": 12,
+  "passed_or_repaired": 9,
+  "rejected": 3,
+  "selected": "자정 이후의 콜센터",
+  "editor_score": 91.6,
+  "completed": [
+    "dynamic_candidates",
+    "editor_gate",
+    "retitle_if_needed",
+    "selection",
+    "bible",
+    "outline",
+    "chapter-1"
+  ],
+  "next": "chapter_writer_and_continuity_loop"
+}

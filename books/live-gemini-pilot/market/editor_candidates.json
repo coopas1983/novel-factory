@@ -1,0 +1,303 @@
+[
+  {
+    "title": "자정 이후의 콜센터",
+    "genre": "생활미스터리",
+    "trend_engine": "착각",
+    "hook": "야간 콜센터에서 평범한 직업 기술이 초현실 사건 해결 능력이 되는 규칙을 발견한 주인공이 빚을 청산한다.",
+    "market_fit": 91,
+    "originality": 93,
+    "series_potential": 83,
+    "emotion": 83,
+    "clarity": 96,
+    "source_strategy": {
+      "positive": [
+        "한 줄로 이해되는 강한 전제",
+        "성장/성공의 가시적 진행",
+        "직업·생활공간과 장르 장치 결합",
+        "시리즈 확장성",
+        "감정적 관계축"
+      ],
+      "penalties": [
+        "단순 회귀만으로 차별화",
+        "유명작 고유설정과 유사",
+        "초반 설명 과다",
+        "성장 보상이 늦음"
+      ]
+    },
+    "factory_score": 89.4,
+    "editor": {
+      "passed": true,
+      "score": 91.6,
+      "title_score": 100,
+      "reasons": []
+    },
+    "retitled_from": "야간 콜센터에서 사장가 되었다"
+  },
+  {
+    "title": "지방 공장에서 에이스가 되었다",
+    "genre": "스포츠판타지",
+    "trend_engine": "성장",
+    "hook": "지방 공장에서 평범한 직업 기술이 초현실 사건 해결 능력이 되는 규칙을 발견한 주인공이 사라진 사람을 찾는다.",
+    "market_fit": 93,
+    "originality": 91,
+    "series_potential": 76,
+    "emotion": 73,
+    "clarity": 90,
+    "source_strategy": {
+      "positive": [
+        "한 줄로 이해되는 강한 전제",
+        "성장/성공의 가시적 진행",
+        "직업·생활공간과 장르 장치 결합",
+        "시리즈 확장성",
+        "감정적 관계축"
+      ],
+      "penalties": [
+        "단순 회귀만으로 차별화",
+        "유명작 고유설정과 유사",
+        "초반 설명 과다",
+        "성장 보상이 늦음"
+      ]
+    },
+    "factory_score": 85.7,
+    "editor": {
+      "passed": true,
+      "score": 88.5,
+      "title_score": 100,
+      "reasons": []
+    }
+  },
+  {
+    "title": "도면에 없는 세대",
+    "genre": "감성미스터리",
+    "trend_engine": "성장",
+    "hook": "오래된 아파트 관리소에서 평범한 직업 기술이 초현실 사건 해결 능력이 되는 규칙을 발견한 주인공이 회사를 살린다.",
+    "market_fit": 79,
+    "originality": 89,
+    "series_potential": 88,
+    "emotion": 86,
+    "clarity": 84,
+    "source_strategy": {
+      "positive": [
+        "한 줄로 이해되는 강한 전제",
+        "성장/성공의 가시적 진행",
+        "직업·생활공간과 장르 장치 결합",
+        "시리즈 확장성",
+        "감정적 관계축"
+      ],
+      "penalties": [
+        "단순 회귀만으로 차별화",
+        "유명작 고유설정과 유사",
+        "초반 설명 과다",
+        "성장 보상이 늦음"
+      ]
+    },
+    "factory_score": 85.1,
+    "editor": {
+      "passed": true,
+      "score": 87.4,
+      "title_score": 100,
+      "reasons": []
+    },
+    "retitled_from": "오래된 아파트 관리소에서 감독가 되었다"
+  },
+  {
+    "title": "꼴찌 구단의 데이터가 보인다",
+    "genre": "오피스판타지",
+    "trend_engine": "성공",
+    "hook": "망해가는 스포츠 구단에서 타인의 미완성 목표를 해결하면 새로운 능력을 얻는 규칙을 발견한 주인공이 무너진 팀을 정상에 올린다.",
+    "market_fit": 84,
+    "originality": 82,
+    "series_potential": 89,
+    "emotion": 78,
+    "clarity": 93,
+    "source_strategy": {
+      "positive": [
+        "한 줄로 이해되는 강한 전제",
+        "성장/성공의 가시적 진행",
+        "직업·생활공간과 장르 장치 결합",
+        "시리즈 확장성",
+        "감정적 관계축"
+      ],
+      "penalties": [
+        "단순 회귀만으로 차별화",
+        "유명작 고유설정과 유사",
+        "초반 설명 과다",
+        "성장 보상이 늦음"
+      ]
+    },
+    "factory_score": 85.0,
+    "editor": {
+      "passed": true,
+      "score": 87.4,
+      "title_score": 100,
+      "reasons": []
+    },
+    "retitled_from": "망해가는 스포츠 구단에서 팀장가 되었다"
+  },
+  {
+    "title": "중고 거래 회사의 숨은 기록",
+    "genre": "생활미스터리",
+    "trend_engine": "착각",
+    "hook": "중고 거래 회사에서 평범한 직업 기술이 초현실 사건 해결 능력이 되는 규칙을 발견한 주인공이 빚을 청산한다.",
+    "market_fit": 81,
+    "originality": 87,
+    "series_potential": 81,
+    "emotion": 76,
+    "clarity": 96,
+    "source_strategy": {
+      "positive": [
+        "한 줄로 이해되는 강한 전제",
+        "성장/성공의 가시적 진행",
+        "직업·생활공간과 장르 장치 결합",
+        "시리즈 확장성",
+        "감정적 관계축"
+      ],
+      "penalties": [
+        "단순 회귀만으로 차별화",
+        "유명작 고유설정과 유사",
+        "초반 설명 과다",
+        "성장 보상이 늦음"
+      ]
+    },
+    "factory_score": 84.0,
+    "editor": {
+      "passed": true,
+      "score": 87.1,
+      "title_score": 100,
+      "reasons": []
+    },
+    "retitled_from": "중고 거래 회사에서 사장가 되었다"
+  },
+  {
+    "title": "지역 방송국에서 천재가 되었다",
+    "genre": "엔터테인먼트판타지",
+    "trend_engine": "성공",
+    "hook": "지역 방송국에서 타인의 미완성 목표를 해결하면 새로운 능력을 얻는 규칙을 발견한 주인공이 업계 1위가 된다.",
+    "market_fit": 86,
+    "originality": 80,
+    "series_potential": 82,
+    "emotion": 91,
+    "clarity": 87,
+    "source_strategy": {
+      "positive": [
+        "한 줄로 이해되는 강한 전제",
+        "성장/성공의 가시적 진행",
+        "직업·생활공간과 장르 장치 결합",
+        "시리즈 확장성",
+        "감정적 관계축"
+      ],
+      "penalties": [
+        "단순 회귀만으로 차별화",
+        "유명작 고유설정과 유사",
+        "초반 설명 과다",
+        "성장 보상이 늦음"
+      ]
+    },
+    "factory_score": 84.6,
+    "editor": {
+      "passed": true,
+      "score": 86.6,
+      "title_score": 100,
+      "reasons": []
+    }
+  },
+  {
+    "title": "폐업 직전 상가에서 해결사가 되었다",
+    "genre": "현대판타지",
+    "trend_engine": "성장",
+    "hook": "폐업 직전 상가에서 타인의 미완성 목표를 해결하면 새로운 능력을 얻는 규칙을 발견한 주인공이 숨겨진 사건의 진실을 밝힌다.",
+    "market_fit": 88,
+    "originality": 78,
+    "series_potential": 94,
+    "emotion": 81,
+    "clarity": 81,
+    "source_strategy": {
+      "positive": [
+        "한 줄로 이해되는 강한 전제",
+        "성장/성공의 가시적 진행",
+        "직업·생활공간과 장르 장치 결합",
+        "시리즈 확장성",
+        "감정적 관계축"
+      ],
+      "penalties": [
+        "단순 회귀만으로 차별화",
+        "유명작 고유설정과 유사",
+        "초반 설명 과다",
+        "성장 보상이 늦음"
+      ]
+    },
+    "factory_score": 84.6,
+    "editor": {
+      "passed": true,
+      "score": 86.5,
+      "title_score": 100,
+      "reasons": []
+    }
+  },
+  {
+    "title": "폐업 직전 상가에서 천재가 되었다",
+    "genre": "엔터테인먼트판타지",
+    "trend_engine": "성공",
+    "hook": "폐업 직전 상가에서 타인의 미완성 목표를 해결하면 새로운 능력을 얻는 규칙을 발견한 주인공이 업계 1위가 된다.",
+    "market_fit": 80,
+    "originality": 86,
+    "series_potential": 84,
+    "emotion": 75,
+    "clarity": 87,
+    "source_strategy": {
+      "positive": [
+        "한 줄로 이해되는 강한 전제",
+        "성장/성공의 가시적 진행",
+        "직업·생활공간과 장르 장치 결합",
+        "시리즈 확장성",
+        "감정적 관계축"
+      ],
+      "penalties": [
+        "단순 회귀만으로 차별화",
+        "유명작 고유설정과 유사",
+        "초반 설명 과다",
+        "성장 보상이 늦음"
+      ]
+    },
+    "factory_score": 82.6,
+    "editor": {
+      "passed": true,
+      "score": 85.7,
+      "title_score": 100,
+      "reasons": []
+    }
+  },
+  {
+    "title": "소형 연예기획사에서 해결사가 되었다",
+    "genre": "현대판타지",
+    "trend_engine": "성장",
+    "hook": "소형 연예기획사에서 타인의 미완성 목표를 해결하면 새로운 능력을 얻는 규칙을 발견한 주인공이 숨겨진 사건의 진실을 밝힌다.",
+    "market_fit": 82,
+    "originality": 84,
+    "series_potential": 77,
+    "emotion": 88,
+    "clarity": 81,
+    "source_strategy": {
+      "positive": [
+        "한 줄로 이해되는 강한 전제",
+        "성장/성공의 가시적 진행",
+        "직업·생활공간과 장르 장치 결합",
+        "시리즈 확장성",
+        "감정적 관계축"
+      ],
+      "penalties": [
+        "단순 회귀만으로 차별화",
+        "유명작 고유설정과 유사",
+        "초반 설명 과다",
+        "성장 보상이 늦음"
+      ]
+    },
+    "factory_score": 82.2,
+    "editor": {
+      "passed": true,
+      "score": 84.9,
+      "title_score": 100,
+      "reasons": []
+    }
+  }
+]

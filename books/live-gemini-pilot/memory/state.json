@@ -1,0 +1,29 @@
+{
+  "canon": [],
+  "characters": {
+    "강이현": {
+      "location": "미정",
+      "condition": "정상",
+      "knowledge": [
+        "1화 사건의 핵심 단서"
+      ],
+      "relationships": {}
+    }
+  },
+  "open_hooks": [
+    "미확인 기록 02"
+  ],
+  "resolved_hooks": [],
+  "chapter_summaries": [
+    {
+      "chapter": 1,
+      "summary": "이상 징후: 주인공이 일상에서 설명할 수 없는 첫 사건을 발견한다. 사건을 거치며 다음 미확인 기록으로 연결된다."
+    }
+  ],
+  "timeline": [
+    {
+      "chapter": 1,
+      "event": "주인공이 일상에서 설명할 수 없는 첫 사건을 발견한다."
+    }
+  ]
+}
