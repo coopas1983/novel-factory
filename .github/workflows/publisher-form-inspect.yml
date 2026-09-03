@@ -1,0 +1,37 @@
+name: Publisher Form Inspect
+
+on:
+  workflow_dispatch:
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install browser
+        working-directory: browser_publisher
+        run: |
+          npm install
+          npx playwright install --with-deps chromium
+      - name: Inspect NovelPia write form
+        working-directory: browser_publisher
+        env:
+          NOVELPIA_STORAGE_STATE_B64: ${{ secrets.NOVELPIA_STORAGE_STATE_B64 }}
+          NOVELPIA_WRITE_URL: https://novelpia.com/mynovel/all/write/450743
+        run: node inspect.js novelpia
+      - name: Inspect Quarterfull studio
+        working-directory: browser_publisher
+        env:
+          QUARTERFULL_STORAGE_STATE_B64: ${{ secrets.QUARTERFULL_STORAGE_STATE_B64 }}
+          QUARTERFULL_STUDIO_URL: https://quarterfull.io/studio-cursor
+        run: node inspect.js quarterfull
+      - name: Upload selector reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: publisher-form-reports
+          path: browser_publisher/reports/*.json
+          retention-days: 3
