@@ -3,6 +3,7 @@ from pathlib import Path
 from factory.ai_writer import config_from_env, generate
 from factory.text_hygiene import scan_text
 from factory.korean_editor import apply_safe_fixes, scan_korean_editor
+from factory.context_editor import contextual_edit, preservation_gate
 
 MIN_CHARS=3500
 MAX_CHARS=4500
@@ -20,8 +21,7 @@ def make_prompt(original):
 기존 사건, 인물, 핵심 미스터리와 결말 훅은 보존한다.
 분량을 늘리기 위한 반복/설명문/메타 발언/AI투 문장을 금지한다.
 감각 묘사, 행동, 대화, 불안의 단계적 상승으로 장면을 풍부하게 한다.
-한국어 본문에 태국 문자나 깨진 문자 같은 비정상 문자를 절대 섞지 않는다.
-맞춤법, 띄어쓰기, 조사와 동사 활용을 자연스럽게 교정한다.
+한국어 본문에 비정상 문자나 잘못 생성된 단어를 섞지 않는다.
 제목/해설 없이 소설 본문만 출력한다.
 
 [원문]
@@ -34,9 +34,6 @@ def expansion_prompt(text, need):
 최종 3,500~4,500자 사이의 본문 전체를 다시 출력하라.
 새 사건을 억지로 만들지 말고 장면 행동, 대화, 감각, 긴장 상승을 보강하라.
 같은 뜻 반복, 요약, 메타 설명, 제목은 금지한다.
-한국어 본문에 태국 문자나 깨진 문자 같은 비정상 문자를 절대 섞지 않는다.
-맞춤법, 띄어쓰기, 조사와 동사 활용을 자연스럽게 교정한다.
-
 [현재 본문]
 {text}
 """
@@ -58,21 +55,30 @@ def main():
     cfg=config_from_env()
 
     text=clean(generate(cfg,make_prompt(original)))
-    passes=1
-
+    generation_passes=1
     if len(text)<MIN_CHARS:
-        text=clean(generate(cfg,expansion_prompt(text, TARGET_MIN-len(text))))
-        passes=2
+        text=clean(generate(cfg,expansion_prompt(text,TARGET_MIN-len(text))))
+        generation_passes=2
 
+    before_context=text
+    text=clean(contextual_edit(cfg,text))
+    preservation_issues=preservation_gate(before_context,text)
     text=apply_safe_fixes(text)
-    issues=check(text)
+    issues=sorted(set(preservation_issues + check(text)))
+
     out=Path("books/live-gemini-pilot/commercial")
     out.mkdir(parents=True,exist_ok=True)
     (out/"chapter-1.md").write_text(text,encoding="utf-8")
-    report={"chars":len(text),"generation_passes":passes,
-            "issues":issues,
-            "final_editor":"PASS" if not issues else "BLOCK",
-            "gate":"PASS" if not issues else "BLOCK"}
+    report={
+        "chars":len(text),
+        "generation_passes":generation_passes,
+        "context_editor_passes":1,
+        "preservation_ratio":round(len(text)/max(1,len(before_context)),4),
+        "issues":issues,
+        "context_editor":"PASS" if not preservation_issues else "BLOCK",
+        "final_editor":"PASS" if not issues else "BLOCK",
+        "gate":"PASS" if not issues else "BLOCK",
+    }
     (out/"chapter-1-quality.json").write_text(
         json.dumps(report,ensure_ascii=False,indent=2),encoding="utf-8")
     print(json.dumps(report,ensure_ascii=False))
