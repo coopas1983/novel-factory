@@ -9,7 +9,7 @@ permissions:
 jobs:
   write-first-chapter:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     env:
       NOVEL_FACTORY_PROVIDER: gemini
       GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
