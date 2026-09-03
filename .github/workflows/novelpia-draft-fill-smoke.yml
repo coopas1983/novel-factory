@@ -1,0 +1,33 @@
+name: NovelPia Draft Fill Smoke
+
+on:
+  workflow_dispatch:
+
+jobs:
+  fill-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install browser
+        working-directory: browser_publisher
+        run: |
+          npm install
+          npx playwright install --with-deps chromium
+      - name: Fill NovelPia form without saving
+        working-directory: browser_publisher
+        env:
+          NOVELPIA_STORAGE_STATE_B64: ${{ secrets.NOVELPIA_STORAGE_STATE_B64 }}
+          NOVELPIA_WRITE_URL: https://novelpia.com/mynovel/all/write/450743
+          DRAFT_TITLE: "[자동화 테스트] 저장하지 않음"
+          DRAFT_BODY: "자동입력 검증용 본문입니다. 이 내용은 저장하거나 공개하지 않습니다."
+        run: node fill_draft.js novelpia
+      - name: Upload fill report
+        uses: actions/upload-artifact@v4
+        with:
+          name: novelpia-draft-fill-report
+          path: browser_publisher/reports/novelpia-draft-fill.json
+          retention-days: 3
