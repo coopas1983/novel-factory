@@ -2,10 +2,10 @@ const fs=require("fs");
 const path=require("path");
 const crypto=require("crypto");
 const { chromium }=require("playwright");
-const { loadStorageState }=require("./auth");
+const { loadState }=require("./auth");
 
 (async()=>{
-  const storageState=loadStorageState("NOVELPIA");
+  const storageState=loadState("NOVELPIA");
   const chapterPath=path.join(__dirname,"..","books","live-gemini-pilot","commercial","chapter-1.md");
   const qualityPath=path.join(__dirname,"..","books","live-gemini-pilot","commercial","chapter-1-quality.json");
   if(!fs.existsSync(chapterPath)||!fs.existsSync(qualityPath)) throw new Error("COMMERCIAL_FILES_MISSING");
