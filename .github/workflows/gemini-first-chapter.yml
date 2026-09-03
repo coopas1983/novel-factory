@@ -29,6 +29,7 @@ jobs:
 
       - name: Generate one real AI chapter
         run: python -m factory.github_first_chapter
+          python -m factory.package_publish
 
       - name: Commit generated result
         run: |
