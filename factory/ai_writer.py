@@ -1,5 +1,5 @@
 from __future__ import annotations
-import json, os, urllib.request, urllib.error, time, random
+import json, os, urllib.request, urllib.error, time, random, socket
 from dataclasses import dataclass
 
 SYSTEM = """당신은 한국 상업 장르소설 전문 작가다.
@@ -110,6 +110,15 @@ def generate(cfg, prompt):
                 try:
                     data=_gemini_call(cfg.api_key,model,prompt)
                     return data["candidates"][0]["content"]["parts"][0]["text"]
+                except (TimeoutError, socket.timeout, urllib.error.URLError) as e:
+                    failures.append({"model":model,"attempt":attempt,"code":"NETWORK_TIMEOUT","body":str(e)[:250]})
+                    if attempt<3:
+                        delay=(2**attempt)+random.uniform(0,1)
+                        print(f"GEMINI_RETRY model={model} attempt={attempt} network_timeout wait={delay:.1f}s")
+                        time.sleep(delay)
+                        continue
+                    print(f"GEMINI_FAILOVER model={model} after network timeout")
+                    break
                 except urllib.error.HTTPError as e:
                     body=e.read().decode("utf-8","replace")
                     failures.append({"model":model,"attempt":attempt,"code":e.code,"body":body[:250]})
