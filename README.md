@@ -53,3 +53,8 @@ Before generation the factory now calls Gemini's models endpoint using the confi
 filters for models supporting generateContent, and selects an actually available model.
 Preferred stable model is gemini-3.6-flash; if unavailable it falls back through current Flash
 models. HTTP failures now include the selected model and Gemini response body for diagnosis.
+
+## v0.9.2 Gemini automatic recovery
+Transient Gemini HTTP 429/500/502/503/504 responses now trigger exponential-backoff retries.
+After three failed attempts on a model, the writer automatically fails over to another available
+generateContent Gemini model. Only after up to five eligible models fail does the factory stop.

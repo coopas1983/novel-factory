@@ -1,5 +1,5 @@
 from __future__ import annotations
-import json, os, urllib.request, urllib.error
+import json, os, urllib.request, urllib.error, time, random
 from dataclasses import dataclass
 
 SYSTEM = """당신은 한국 상업 장르소설 전문 작가다.
@@ -76,6 +76,12 @@ def choose_gemini_model(api_key, preferred):
         return fallback, available
     raise RuntimeError("GEMINI_MODEL_BLOCKED: no generateContent Gemini model available for this API key")
 
+def _gemini_call(api_key, model, prompt):
+    url=f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+    return _post(url,{"Content-Type":"application/json"},
+                 {"system_instruction":{"parts":[{"text":SYSTEM}]},
+                  "contents":[{"parts":[{"text":prompt}]}]})
+
 def generate(cfg, prompt):
     if not cfg.api_key:
         raise RuntimeError(f"AI_WRITER_BLOCKED: {cfg.provider} API key is missing")
@@ -91,14 +97,30 @@ def generate(cfg, prompt):
                     "messages":[{"role":"user","content":prompt}]})
         return data["content"][0]["text"]
     if cfg.provider=="gemini":
-        model, available = choose_gemini_model(cfg.api_key, cfg.model)
-        url=f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={cfg.api_key}"
-        try:
-            data=_post(url,{"Content-Type":"application/json"},
-                       {"system_instruction":{"parts":[{"text":SYSTEM}]},
-                        "contents":[{"parts":[{"text":prompt}]}]})
-        except urllib.error.HTTPError as e:
-            body=e.read().decode("utf-8","replace")
-            raise RuntimeError(f"GEMINI_HTTP_{e.code}: model={model}; {body[:700]}") from e
-        return data["candidates"][0]["content"]["parts"][0]["text"]
+        preferred, available=choose_gemini_model(cfg.api_key,cfg.model)
+        ordered=[preferred]+[m for m in available if m!=preferred and m.startswith("gemini-")
+                             and "image" not in m and "tts" not in m and "live" not in m
+                             and "embedding" not in m]
+        # Avoid trying an excessive catalog; enough to survive transient capacity issues.
+        ordered=ordered[:5]
+        failures=[]
+        for model in ordered:
+            for attempt in range(1,4):
+                try:
+                    data=_gemini_call(cfg.api_key,model,prompt)
+                    return data["candidates"][0]["content"]["parts"][0]["text"]
+                except urllib.error.HTTPError as e:
+                    body=e.read().decode("utf-8","replace")
+                    failures.append({"model":model,"attempt":attempt,"code":e.code,"body":body[:250]})
+                    # transient server/capacity/rate conditions: backoff, then model failover
+                    if e.code in (429,500,502,503,504):
+                        if attempt<3:
+                            delay=(2**attempt)+random.uniform(0,1)
+                            print(f"GEMINI_RETRY model={model} attempt={attempt} http={e.code} wait={delay:.1f}s")
+                            time.sleep(delay)
+                            continue
+                        print(f"GEMINI_FAILOVER model={model} after transient HTTP {e.code}")
+                        break
+                    raise RuntimeError(f"GEMINI_HTTP_{e.code}: model={model}; {body[:700]}") from e
+        raise RuntimeError("GEMINI_ALL_MODELS_BUSY: "+json.dumps(failures,ensure_ascii=False))
     raise RuntimeError("AI_WRITER_BLOCKED: set NOVEL_FACTORY_PROVIDER to openai, anthropic, or gemini")
