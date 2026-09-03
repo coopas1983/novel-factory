@@ -17,7 +17,7 @@ jobs:
       - name: Commercial edit and quality gate
         env:
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
-          AI_PROVIDER: gemini
+          NOVEL_FACTORY_PROVIDER: gemini
         run: python -m factory.commercial_episode
       - name: Commit gated manuscript
         run: |
