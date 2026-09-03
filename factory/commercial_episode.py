@@ -2,6 +2,7 @@ import re, json
 from pathlib import Path
 from factory.ai_writer import config_from_env, generate
 from factory.text_hygiene import scan_text
+from factory.korean_editor import apply_safe_fixes, scan_korean_editor
 
 MIN_CHARS=3500
 MAX_CHARS=4500
@@ -20,6 +21,7 @@ def make_prompt(original):
 분량을 늘리기 위한 반복/설명문/메타 발언/AI투 문장을 금지한다.
 감각 묘사, 행동, 대화, 불안의 단계적 상승으로 장면을 풍부하게 한다.
 한국어 본문에 태국 문자나 깨진 문자 같은 비정상 문자를 절대 섞지 않는다.
+맞춤법, 띄어쓰기, 조사와 동사 활용을 자연스럽게 교정한다.
 제목/해설 없이 소설 본문만 출력한다.
 
 [원문]
@@ -33,6 +35,7 @@ def expansion_prompt(text, need):
 새 사건을 억지로 만들지 말고 장면 행동, 대화, 감각, 긴장 상승을 보강하라.
 같은 뜻 반복, 요약, 메타 설명, 제목은 금지한다.
 한국어 본문에 태국 문자나 깨진 문자 같은 비정상 문자를 절대 섞지 않는다.
+맞춤법, 띄어쓰기, 조사와 동사 활용을 자연스럽게 교정한다.
 
 [현재 본문]
 {text}
@@ -45,6 +48,7 @@ def check(text):
     for bad in ["다음 화","독자 여러분","재편집"]:
         if bad in text: issues.append("META_OR_BAD_PHRASE:"+bad)
     issues.extend(scan_text(text))
+    issues.extend(f"{x.code}:{x.phrase}" for x in scan_korean_editor(text))
     return sorted(set(issues))
 
 def main():
@@ -60,12 +64,15 @@ def main():
         text=clean(generate(cfg,expansion_prompt(text, TARGET_MIN-len(text))))
         passes=2
 
+    text=apply_safe_fixes(text)
     issues=check(text)
     out=Path("books/live-gemini-pilot/commercial")
     out.mkdir(parents=True,exist_ok=True)
     (out/"chapter-1.md").write_text(text,encoding="utf-8")
     report={"chars":len(text),"generation_passes":passes,
-            "issues":issues,"gate":"PASS" if not issues else "BLOCK"}
+            "issues":issues,
+            "final_editor":"PASS" if not issues else "BLOCK",
+            "gate":"PASS" if not issues else "BLOCK"}
     (out/"chapter-1-quality.json").write_text(
         json.dumps(report,ensure_ascii=False,indent=2),encoding="utf-8")
     print(json.dumps(report,ensure_ascii=False))
