@@ -1,0 +1,22 @@
+version: 0.1
+language: ko
+market: KR
+provider: manual
+human_gates:
+  concept_approval: true
+quality:
+  concept_min_score: 75
+  chapter_min_score: 80
+  continuity_max_severity: S2
+  require_unresolved_hook_tracking: true
+pipeline:
+  - discover
+  - ideate
+  - select
+  - bible
+  - outline
+  - write
+  - review
+  - continuity
+  - polish
+  - package

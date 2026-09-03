@@ -1,0 +1,1 @@
+"""Novel Factory core package."""
