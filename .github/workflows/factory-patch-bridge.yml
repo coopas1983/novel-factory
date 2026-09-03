@@ -1,0 +1,84 @@
+name: Factory Patch Bridge
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_path:
+        description: "Repository file path to create/replace"
+        required: true
+        type: string
+      content_b64:
+        description: "UTF-8 file content encoded as base64"
+        required: true
+        type: string
+      commit_message:
+        description: "Commit message"
+        required: false
+        default: "Apply factory patch"
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: factory-patch-bridge
+  cancel-in-progress: false
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate target path
+        env:
+          TARGET_PATH: ${{ inputs.target_path }}
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import PurePosixPath
+          p=os.environ["TARGET_PATH"].strip()
+          q=PurePosixPath(p)
+          if not p or p.startswith("/") or ".." in q.parts:
+              raise SystemExit("UNSAFE_TARGET_PATH")
+          if p == ".git" or p.startswith(".git/"):
+              raise SystemExit("BLOCKED_TARGET_PATH")
+          print("TARGET_OK", p)
+          PY
+
+      - name: Decode patch content
+        env:
+          TARGET_PATH: ${{ inputs.target_path }}
+          CONTENT_B64: ${{ inputs.content_b64 }}
+        run: |
+          python - <<'PY'
+          import os, base64
+          from pathlib import Path
+          p=Path(os.environ["TARGET_PATH"])
+          p.parent.mkdir(parents=True, exist_ok=True)
+          raw=base64.b64decode(os.environ["CONTENT_B64"], validate=True)
+          raw.decode("utf-8")
+          p.write_bytes(raw)
+          print("WROTE", p, "bytes=", len(raw))
+          PY
+
+      - name: Validate diff
+        run: git diff --check
+
+      - name: Commit and push if changed
+        env:
+          TARGET_PATH: ${{ inputs.target_path }}
+          COMMIT_MESSAGE: ${{ inputs.commit_message }}
+        run: |
+          if git diff --quiet -- "$TARGET_PATH"; then
+            echo "NO_CHANGES"
+            exit 0
+          fi
+          git config user.name "novel-factory-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add -- "$TARGET_PATH"
+          git commit -m "$COMMIT_MESSAGE"
+          git push
