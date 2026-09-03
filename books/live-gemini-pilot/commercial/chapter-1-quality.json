@@ -1,18 +1,21 @@
 {
-  "chars": 3827,
+  "chars": 4220,
   "generation_passes": 1,
   "context_editor_passes": 1,
+  "lexical_preflight_detected": [],
+  "lexical_preflight_final": [],
   "independent_review_passes": 2,
   "repair_passes": 1,
   "first_review_issues": [
     {
-      "phrase": "상차림 박스를 나르고",
-      "reason": "물류창고의 '상차(화물을 차에 실음)' 작업을 가리켜야 하나, 밥상을 차리는 의미의 '상차림'으로 잘못 생성된 표현입니다.",
-      "suggestion": "상차 박스를 나르고"
+      "phrase": "수셔 넣어 둔",
+      "reason": "맞춤법 및 오타 오류 ('수셔' -> '쑤셔')",
+      "suggestion": "쑤셔 넣어 둔"
     }
   ],
   "final_review_issues": [],
   "issues": [],
+  "lexical_preflight": "PASS",
   "independent_reviewer": "PASS",
   "gate": "PASS"
 }
