@@ -1,0 +1,29 @@
+name: Publisher Auth Smoke
+
+on:
+  workflow_dispatch:
+
+jobs:
+  auth-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install browser publisher
+        working-directory: browser_publisher
+        run: |
+          npm install
+          npx playwright install --with-deps chromium
+      - name: NovelPia authenticated browser smoke
+        working-directory: browser_publisher
+        env:
+          NOVELPIA_STORAGE_STATE_B64: ${{ secrets.NOVELPIA_STORAGE_STATE_B64 }}
+        run: node smoke.js novelpia
+      - name: Quarterfull authenticated browser smoke
+        working-directory: browser_publisher
+        env:
+          QUARTERFULL_STORAGE_STATE_B64: ${{ secrets.QUARTERFULL_STORAGE_STATE_B64 }}
+        run: node smoke.js quarterfull
