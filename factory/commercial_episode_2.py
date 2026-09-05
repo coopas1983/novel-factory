@@ -9,7 +9,7 @@ from factory.lexical_preflight import scan_lexical, apply_lexical_fixes
 
 BOOK=Path("books/live-gemini-pilot"); EPISODE=2
 MIN_VISIBLE_CHARS=3500; TARGET_VISIBLE_MIN=3700; TARGET_VISIBLE_MAX=4200; MAX_VISIBLE_CHARS=4400
-MAX_EXPANSION_PASSES=3
+MAX_EXPANSION_PASSES=3; MAX_CONTRACTION_PASSES=2; MAX_REPAIR_PASSES=2
 MAX_CONTINUITY_REVIEW_ATTEMPTS=2
 
 def clean(s):
@@ -38,21 +38,23 @@ def make_prompt(c1,bible,ep,memory):
 [2화 아웃라인]{json.dumps(ep,ensure_ascii=False)}
 [스토리 바이블]{json.dumps(bible,ensure_ascii=False)}
 [기존 메모리]{json.dumps(memory,ensure_ascii=False)}
-[발행된 1화]
-{c1}"""
+[발행된 1화]\n{c1}"""
 
 def expansion_prompt(text):
-    current=visible_chars(text)
-    need=max(0,TARGET_VISIBLE_MIN-current)
+    current=visible_chars(text); need=max(0,TARGET_VISIBLE_MIN-current)
     return f"""아래 2화 원고는 현재 공백/줄바꿈 제외 {current}자다.
 최종 원고를 공백/줄바꿈 제외 {TARGET_VISIBLE_MIN}~{TARGET_VISIBLE_MAX}자로 확장하라.
 최소 {need}자 이상을 실질적인 새 서사로 보강해야 한다.
-기존 원고를 축약하거나 삭제해서는 안 된다. 기존 사건 순서와 결말 훅을 유지한다.
-추가 분량은 행동/대화/긴장 상승/새 단서/인물의 선택과 결과로만 만든다.
-같은 감정 반복, 같은 정보 재진술, 풍경 늘이기, 요약문, 메타 발언은 금지한다.
-본문 전체만 출력한다.
-[현재 원고]
-{text}"""
+기존 사건 순서와 결말 훅을 유지한다. 반복/재진술/풍경 늘이기 금지. 본문 전체만 출력한다.
+[현재 원고]\n{text}"""
+
+def contraction_prompt(text):
+    current=visible_chars(text)
+    return f"""아래 2화 원고는 현재 공백/줄바꿈 제외 {current}자로 너무 길다.
+핵심 사건, 단서, 인과관계, 03:14:22, 7층/7번 단말기, 보상, 마지막 훅을 절대 삭제하지 말고
+중복 설명, 같은 감정 재진술, 장황한 수식과 풍경만 덜어 공백/줄바꿈 제외 {TARGET_VISIBLE_MIN}~{TARGET_VISIBLE_MAX}자로 압축하라.
+새 설정을 추가하지 마라. 문장 자연스러움을 유지하고 원고 전체만 출력하라.
+[현재 원고]\n{text}"""
 
 def repair_prompt(text,issues):
     return f"""한국 상업 웹소설 2화 최종 교정이다. 아래 오류만 최소한으로 고쳐라.
@@ -61,18 +63,13 @@ def repair_prompt(text,issues):
 [원고]{text}"""
 
 def parse_continuity_review(raw,text):
-    candidate=clean(raw)
-    decoder=json.JSONDecoder()
+    candidate=clean(raw); decoder=json.JSONDecoder()
     for match in re.finditer(r"\{",candidate):
-        try:
-            obj,_=decoder.raw_decode(candidate[match.start():])
-        except json.JSONDecodeError:
-            continue
-        if not isinstance(obj,dict) or "issues" not in obj:
-            continue
+        try: obj,_=decoder.raw_decode(candidate[match.start():])
+        except json.JSONDecodeError: continue
+        if not isinstance(obj,dict) or "issues" not in obj: continue
         xs=obj.get("issues",[])
-        if not isinstance(xs,list):
-            raise ValueError("continuity issues must be a list")
+        if not isinstance(xs,list): raise ValueError("continuity issues must be a list")
         return [x for x in xs if isinstance(x,dict) and x.get("phrase") and x["phrase"] in text]
     raise ValueError("no valid continuity review JSON found")
 
@@ -83,16 +80,13 @@ def continuity_review(cfg,c1,text):
 반드시 유효한 JSON 객체 하나만 출력한다. 설명, 코드펜스, 머리말, 꼬리말을 붙이지 마라.
 형식: {{"issues":[{{"phrase":"2화의 실제 문구","reason":"충돌 이유"}}]}}
 없으면 {{"issues":[]}}.
-[1화]{c1}
-[2화]{text}"""
+[1화]{c1}\n[2화]{text}"""
     last_error=None
     for _ in range(MAX_CONTINUITY_REVIEW_ATTEMPTS):
         raw=generate(cfg,prompt)
-        try:
-            return parse_continuity_review(raw,text)
+        try: return parse_continuity_review(raw,text)
         except Exception as exc:
-            last_error=exc
-            prompt += "\n직전 출력은 JSON 파싱에 실패했다. 다른 말 없이 JSON 객체 하나만 다시 출력하라."
+            last_error=exc; prompt += "\n직전 출력은 JSON 파싱에 실패했다. 다른 말 없이 JSON 객체 하나만 다시 출력하라."
     return [{"phrase":"CONTINUITY_REVIEW_PARSE_FAILED","reason":f"review JSON parse failed after {MAX_CONTINUITY_REVIEW_ATTEMPTS} attempts: {last_error}"}]
 
 def deterministic_issues(text):
@@ -107,22 +101,33 @@ def deterministic_issues(text):
 def main():
     c1,bible,ep,memory=load_context(); cfg=config_from_env()
     text=clean(generate(cfg,make_prompt(c1,bible,ep,memory))); generation_passes=1
-    expansion_passes=0
+    expansion_passes=0; contraction_passes=0; repair_passes=0
     while visible_chars(text)<MIN_VISIBLE_CHARS and expansion_passes<MAX_EXPANSION_PASSES:
-        before_expand=text
-        candidate=clean(generate(cfg,expansion_prompt(text)))
-        expansion_passes += 1
-        generation_passes += 1
-        if visible_chars(candidate) <= visible_chars(before_expand):
-            continue
-        text=candidate
+        before_expand=text; candidate=clean(generate(cfg,expansion_prompt(text)))
+        expansion_passes+=1; generation_passes+=1
+        if visible_chars(candidate)>visible_chars(before_expand): text=candidate
+    while visible_chars(text)>MAX_VISIBLE_CHARS and contraction_passes<MAX_CONTRACTION_PASSES:
+        before_contract=text; candidate=clean(generate(cfg,contraction_prompt(text)))
+        contraction_passes+=1; generation_passes+=1
+        if MIN_VISIBLE_CHARS<=visible_chars(candidate)<visible_chars(before_contract): text=candidate
     before=text; text=clean(contextual_edit(cfg,text)); preservation=preservation_gate(before,text)
     lexical_before=scan_lexical(text); text=apply_lexical_fixes(apply_safe_fixes(text))
-    review1=review(cfg,text); repair_passes=0
-    if review1:
-        before=text; text=clean(generate(cfg,repair_prompt(text,review1)))
-        preservation += preservation_gate(before,text); text=apply_lexical_fixes(apply_safe_fixes(text)); repair_passes=1
-    review2=review(cfg,text); continuity=continuity_review(cfg,c1,text); lexical_after=scan_lexical(text)
+    review_now=review(cfg,text)
+    while review_now and repair_passes<MAX_REPAIR_PASSES:
+        before=text; text=clean(generate(cfg,repair_prompt(text,review_now)))
+        preservation += preservation_gate(before,text); text=apply_lexical_fixes(apply_safe_fixes(text))
+        repair_passes+=1; review_now=review(cfg,text)
+    review2=review_now
+    if visible_chars(text)>MAX_VISIBLE_CHARS and contraction_passes<MAX_CONTRACTION_PASSES:
+        before_contract=text; candidate=clean(generate(cfg,contraction_prompt(text)))
+        contraction_passes+=1; generation_passes+=1
+        if MIN_VISIBLE_CHARS<=visible_chars(candidate)<visible_chars(before_contract): text=candidate
+        review2=review(cfg,text)
+        if review2 and repair_passes<MAX_REPAIR_PASSES:
+            before=text; text=clean(generate(cfg,repair_prompt(text,review2)))
+            preservation += preservation_gate(before,text); text=apply_lexical_fixes(apply_safe_fixes(text))
+            repair_passes+=1; review2=review(cfg,text)
+    continuity=continuity_review(cfg,c1,text); lexical_after=scan_lexical(text)
     issues=sorted(set(preservation+deterministic_issues(text)))
     if review2: issues.append("INDEPENDENT_REVIEW_BLOCK")
     if continuity: issues.append("CONTINUITY_REVIEW_BLOCK")
@@ -130,9 +135,9 @@ def main():
     (out/"chapter-2.md").write_text(text,encoding="utf-8")
     report={"episode":2,"chars_with_spaces":len(text),"chars_without_whitespace":visible_chars(text),
       "platform_min_chars_without_whitespace":MIN_VISIBLE_CHARS,"target_chars_without_whitespace":[TARGET_VISIBLE_MIN,TARGET_VISIBLE_MAX],
-      "generation_passes":generation_passes,"expansion_passes":expansion_passes,"repair_passes":repair_passes,
+      "generation_passes":generation_passes,"expansion_passes":expansion_passes,"contraction_passes":contraction_passes,"repair_passes":repair_passes,
       "lexical_preflight_detected":lexical_before,"lexical_preflight_final":lexical_after,
-      "first_review_issues":review1,"final_review_issues":review2,"continuity_issues":continuity,"issues":issues,
+      "final_review_issues":review2,"continuity_issues":continuity,"issues":issues,
       "lexical_preflight":"PASS" if not lexical_after else "BLOCK",
       "independent_reviewer":"PASS" if not review2 else "BLOCK","continuity_reviewer":"PASS" if not continuity else "BLOCK",
       "gate":"PASS" if not issues else "BLOCK"}
