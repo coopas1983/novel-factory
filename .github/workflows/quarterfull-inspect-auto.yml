@@ -1,0 +1,33 @@
+name: QuarterFull Inspect Auto
+
+on:
+  push:
+    paths:
+      - 'browser_publisher/quarterfull-inspect-trigger.txt'
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install browser
+        working-directory: browser_publisher
+        run: |
+          npm install
+          npx playwright install --with-deps chromium
+      - name: Inspect QuarterFull studio
+        working-directory: browser_publisher
+        env:
+          QUARTERFULL_STORAGE_STATE_B64: ${{ secrets.QUARTERFULL_STORAGE_STATE_B64 }}
+          QUARTERFULL_STUDIO_URL: https://quarterfull.io/studio-cursor
+        run: node inspect.js quarterfull
+      - name: Upload report
+        uses: actions/upload-artifact@v4
+        with:
+          name: quarterfull-inspect-report
+          path: browser_publisher/reports/quarterfull-controls.json
+          retention-days: 3
