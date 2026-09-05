@@ -10,6 +10,7 @@ from factory.lexical_preflight import scan_lexical, apply_lexical_fixes
 BOOK=Path("books/live-gemini-pilot"); EPISODE=2
 MIN_VISIBLE_CHARS=3500; TARGET_VISIBLE_MIN=3700; TARGET_VISIBLE_MAX=4200; MAX_VISIBLE_CHARS=4400
 MAX_EXPANSION_PASSES=3
+MAX_CONTINUITY_REVIEW_ATTEMPTS=2
 
 def clean(s):
     s=re.sub(r"^```.*?\n|\n```$","",s.strip(),flags=re.S); return s.strip()
@@ -59,20 +60,40 @@ def repair_prompt(text,issues):
 검수 오류:{json.dumps(issues,ensure_ascii=False)}
 [원고]{text}"""
 
+def parse_continuity_review(raw,text):
+    candidate=clean(raw)
+    decoder=json.JSONDecoder()
+    for match in re.finditer(r"\{",candidate):
+        try:
+            obj,_=decoder.raw_decode(candidate[match.start():])
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(obj,dict) or "issues" not in obj:
+            continue
+        xs=obj.get("issues",[])
+        if not isinstance(xs,list):
+            raise ValueError("continuity issues must be a list")
+        return [x for x in xs if isinstance(x,dict) and x.get("phrase") and x["phrase"] in text]
+    raise ValueError("no valid continuity review JSON found")
+
 def continuity_review(cfg,c1,text):
     prompt=f"""웹소설 연속성 검수자다. 1화와 2화를 비교해 명백한 설정 충돌만 찾는다.
 취향/문체/속도는 평가하지 않는다. 인물/직책/나이/부채/장소/시간/CCTV 03:14:22/7번 단말기/전화 사건의 확정 사실 모순,
 1화에 없던 일을 이미 있었던 일처럼 전제하는 오류, 불가능한 시간·장소 이동만 지적한다.
-JSON만 출력: {{"issues":[{{"phrase":"2화의 실제 문구","reason":"충돌 이유"}}]}}
+반드시 유효한 JSON 객체 하나만 출력한다. 설명, 코드펜스, 머리말, 꼬리말을 붙이지 마라.
+형식: {{"issues":[{{"phrase":"2화의 실제 문구","reason":"충돌 이유"}}]}}
 없으면 {{"issues":[]}}.
 [1화]{c1}
 [2화]{text}"""
-    raw=clean(generate(cfg,prompt))
-    try:
-        obj=json.loads(raw[raw.find("{"):raw.rfind("}")+1]); xs=obj.get("issues",[])
-        return [x for x in xs if isinstance(x,dict) and x.get("phrase") and x["phrase"] in text]
-    except Exception:
-        return [{"phrase":"CONTINUITY_REVIEW_PARSE_FAILED","reason":"review JSON parse failed"}]
+    last_error=None
+    for _ in range(MAX_CONTINUITY_REVIEW_ATTEMPTS):
+        raw=generate(cfg,prompt)
+        try:
+            return parse_continuity_review(raw,text)
+        except Exception as exc:
+            last_error=exc
+            prompt += "\n직전 출력은 JSON 파싱에 실패했다. 다른 말 없이 JSON 객체 하나만 다시 출력하라."
+    return [{"phrase":"CONTINUITY_REVIEW_PARSE_FAILED","reason":f"review JSON parse failed after {MAX_CONTINUITY_REVIEW_ATTEMPTS} attempts: {last_error}"}]
 
 def deterministic_issues(text):
     issues=[]; vc=visible_chars(text)
@@ -92,7 +113,6 @@ def main():
         candidate=clean(generate(cfg,expansion_prompt(text)))
         expansion_passes += 1
         generation_passes += 1
-        # Never accept an "expansion" that shrinks the manuscript.
         if visible_chars(candidate) <= visible_chars(before_expand):
             continue
         text=candidate
