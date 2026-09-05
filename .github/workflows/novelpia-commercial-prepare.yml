@@ -17,11 +17,11 @@ jobs:
         run: |
           npm install
           npx playwright install --with-deps chromium
-      - name: Fill and verify commercial episode without submitting
+      - name: Fill and verify episode 2 without submitting
         working-directory: browser_publisher
         env:
           NOVELPIA_STORAGE_STATE_B64: ${{ secrets.NOVELPIA_STORAGE_STATE_B64 }}
-        run: node novelpia_prepare_commercial.js
+        run: node novelpia_prepare_episode2.js
       - uses: actions/upload-artifact@v4
         if: always()
         with:
