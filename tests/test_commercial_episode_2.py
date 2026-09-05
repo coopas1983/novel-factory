@@ -1,10 +1,21 @@
 import pytest
 
-from factory.commercial_episode_2 import parse_continuity_review, visible_chars
+from factory.commercial_episode_2 import (
+    MAX_VISIBLE_CHARS,
+    MIN_VISIBLE_CHARS,
+    TARGET_VISIBLE_MAX,
+    TARGET_VISIBLE_MIN,
+    parse_continuity_review,
+    visible_chars,
+)
 
 
 def test_episode2_visible_chars():
     assert visible_chars("가 나\n다\t라") == 4
+
+
+def test_episode2_length_thresholds_are_ordered():
+    assert MIN_VISIBLE_CHARS <= TARGET_VISIBLE_MIN <= TARGET_VISIBLE_MAX <= MAX_VISIBLE_CHARS
 
 
 def test_parse_continuity_review_plain_json():
