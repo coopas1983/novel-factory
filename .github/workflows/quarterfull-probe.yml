@@ -1,0 +1,27 @@
+name: QuarterFull Probe
+on:
+  push:
+    paths:
+      - 'browser_publisher/quarterfull-probe-trigger.txt'
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - working-directory: browser_publisher
+        run: |
+          npm install
+          npx playwright install --with-deps chromium
+      - name: Probe QuarterFull draft flow
+        working-directory: browser_publisher
+        env:
+          QUARTERFULL_STORAGE_STATE_B64: ${{ secrets.QUARTERFULL_STORAGE_STATE_B64 }}
+        run: node quarterfull_probe.js
+      - uses: actions/upload-artifact@v4
+        with:
+          name: quarterfull-probe-report
+          path: browser_publisher/reports/quarterfull-probe.json
+          retention-days: 3
