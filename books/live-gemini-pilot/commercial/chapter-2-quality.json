@@ -1,12 +1,8 @@
 {
   "episode": 2,
-  "chars_with_spaces": 5259,
-  "chars_without_whitespace": 3910,
+  "chars_without_whitespace": 3961,
   "platform_min_chars_without_whitespace": 3500,
-  "target_chars_without_whitespace": [
-    3700,
-    4200
-  ],
+  "target_chars_without_whitespace": [3700, 4200],
   "generation_passes": 1,
   "expansion_passes": 0,
   "repair_passes": 0,
@@ -15,9 +11,21 @@
   "first_review_issues": [],
   "final_review_issues": [],
   "continuity_issues": [],
-  "issues": [],
+  "human_polish_fixes": [
+    "opening wording",
+    "typo cleanup",
+    "03:10 timeline wording",
+    "queue terminology",
+    "two-month employment canon",
+    "manual action instructions",
+    "RELEASE command provenance",
+    "reward explanation",
+    "rescued woman identification"
+  ],
+  "human_polish": "PASS",
   "lexical_preflight": "PASS",
   "independent_reviewer": "PASS",
   "continuity_reviewer": "PASS",
-  "gate": "PASS"
+  "gate": "PASS",
+  "publication_state": "READY_AWAITING_USER_APPROVAL"
 }
