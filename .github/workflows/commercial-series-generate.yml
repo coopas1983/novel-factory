@@ -21,6 +21,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
+      NOVEL_FACTORY_PROVIDER: gemini
+      GEMINI_MODEL: gemini-3.6-flash
       GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
       EPISODE: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.episode || '3' }}
     steps:
