@@ -1,1 +1,1 @@
-run 5 resilient project navigation probe
+run 10
