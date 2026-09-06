@@ -20,7 +20,8 @@ const fs = require('fs');
         href: e.getAttribute('href'),
         aria: e.getAttribute('aria-label'),
         placeholder: e.getAttribute('placeholder'),
-        disabled: !!e.disabled || e.getAttribute('aria-disabled') === 'true'
+        disabled: !!e.disabled || e.getAttribute('aria-disabled') === 'true',
+        visible: !!(e.offsetWidth || e.offsetHeight || e.getClientRects().length)
       })).slice(0, 500))
     });
   }
@@ -30,11 +31,17 @@ const fs = require('fs');
   await snap('studio-home');
 
   for (const name of ['Library', 'Bookstore', 'Studio']) {
-    const item = page.getByText(name, { exact: true });
-    if (await item.count()) {
-      await item.first().click();
-      await page.waitForTimeout(1200);
-      await snap(name.toLowerCase());
+    try {
+      const item = page.getByText(name, { exact: true }).filter({ visible: true });
+      if (await item.count()) {
+        await item.first().click({ timeout: 5000 });
+        await page.waitForTimeout(1200);
+        await snap(name.toLowerCase());
+      } else {
+        out.push({ label: `${name.toLowerCase()}-not-visible`, url: page.url() });
+      }
+    } catch (err) {
+      out.push({ label: `${name.toLowerCase()}-error`, url: page.url(), error: String(err) });
     }
   }
 
