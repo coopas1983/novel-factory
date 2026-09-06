@@ -12,47 +12,45 @@ const fs = require('fs');
     out.push({
       label,
       url: page.url(),
-      body: (await page.locator('body').innerText()).slice(0, 24000),
-      controls: await page.evaluate(() => [...document.querySelectorAll('button,a,input,textarea,[role=button]')].map((e, i) => ({
+      body: (await page.locator('body').innerText()).slice(0, 26000),
+      buttons: await page.evaluate(() => [...document.querySelectorAll('button')].map((e, i) => ({
         i,
-        tag: e.tagName.toLowerCase(),
-        text: (e.innerText || e.value || '').replace(/\s+/g, ' ').trim().slice(0, 300),
-        href: e.getAttribute('href'),
+        text: (e.innerText || '').replace(/\s+/g, ' ').trim().slice(0, 300),
         aria: e.getAttribute('aria-label'),
-        placeholder: e.getAttribute('placeholder'),
+        title: e.getAttribute('title'),
         disabled: !!e.disabled || e.getAttribute('aria-disabled') === 'true',
-        visible: !!(e.offsetWidth || e.offsetHeight || e.getClientRects().length)
-      })).slice(0, 500))
+        visible: !!(e.offsetWidth || e.offsetHeight || e.getClientRects().length),
+        html: e.outerHTML.slice(0, 1000)
+      })).slice(0, 300))
     });
   }
 
-  async function clickVisibleText(name) {
-    const matches = await page.getByText(name, { exact: true }).all();
-    for (const m of matches) {
-      if (await m.isVisible()) {
-        await m.click({ timeout: 5000 });
-        return true;
-      }
-    }
-    return false;
+  await page.goto('https://quarterfull.io/bookstore', { waitUntil: 'domcontentloaded', timeout: 60000 });
+  await page.waitForTimeout(1200);
+  const studioMatches = await page.getByText('Studio', { exact: true }).all();
+  for (const m of studioMatches) {
+    if (await m.isVisible()) { await m.click(); break; }
   }
+  await page.waitForTimeout(1200);
+  await snap('studio-before-create');
 
-  await page.goto('https://quarterfull.io/studio-cursor', { waitUntil: 'domcontentloaded', timeout: 60000 });
-  await page.waitForTimeout(1500);
-  await snap('studio-home');
-
-  for (const name of ['Library', 'Bookstore', 'Studio']) {
-    try {
-      if (await clickVisibleText(name)) {
-        await page.waitForTimeout(1200);
-        await snap(name.toLowerCase());
-      } else {
-        out.push({ label: `${name.toLowerCase()}-not-visible`, url: page.url() });
-      }
-    } catch (err) {
-      out.push({ label: `${name.toLowerCase()}-error`, url: page.url(), error: String(err) });
+  const buttons = page.locator('button');
+  let clicked = false;
+  for (let i = 0; i < await buttons.count(); i++) {
+    const b = buttons.nth(i);
+    if (!(await b.isVisible()) || !(await b.isEnabled())) continue;
+    const text = ((await b.innerText().catch(() => '')) || '').replace(/\s+/g, ' ').trim();
+    const aria = await b.getAttribute('aria-label');
+    if (!aria && text.length <= 3) {
+      await b.click({ timeout: 5000 });
+      clicked = true;
+      out.push({ label: 'candidate-clicked', buttonIndex: i, text, aria });
+      await page.waitForTimeout(1200);
+      await snap('after-candidate-click');
+      break;
     }
   }
+  if (!clicked) out.push({ label: 'no-create-candidate' });
 
   fs.mkdirSync('reports', { recursive: true });
   fs.writeFileSync('reports/quarterfull-project-probe.json', JSON.stringify({ snapshots: out }, null, 2));
