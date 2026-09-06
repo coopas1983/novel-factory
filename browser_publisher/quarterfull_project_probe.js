@@ -2,7 +2,7 @@ const {chromium}=require('playwright');
 const {loadState}=require('./auth');
 const fs=require('fs');
 (async()=>{
- const manuscript=fs.readFileSync('books/live-gemini-pilot/commercial/chapter-1.md','utf8').trim();
+ const manuscript=fs.readFileSync('../books/live-gemini-pilot/commercial/chapter-1.md','utf8').trim();
  if(manuscript.length<3000) throw new Error('EP1_SOURCE_TOO_SHORT');
  const browser=await chromium.launch({headless:true});
  const ctx=await browser.newContext({storageState:loadState('quarterfull')});
