@@ -3,6 +3,7 @@ on:
   push:
     paths:
       - 'browser_publisher/quarterfull-probe-trigger.txt'
+      - 'browser_publisher/quarterfull_project_probe.js'
 jobs:
   probe:
     runs-on: ubuntu-latest
@@ -15,13 +16,13 @@ jobs:
         run: |
           npm install
           npx playwright install --with-deps chromium
-      - name: Probe QuarterFull draft flow
+      - name: Probe QuarterFull project flow
         working-directory: browser_publisher
         env:
           QUARTERFULL_STORAGE_STATE_B64: ${{ secrets.QUARTERFULL_STORAGE_STATE_B64 }}
-        run: node quarterfull_probe.js
+        run: node quarterfull_project_probe.js
       - uses: actions/upload-artifact@v4
         with:
-          name: quarterfull-probe-report
-          path: browser_publisher/reports/quarterfull-probe.json
+          name: quarterfull-project-probe-report
+          path: browser_publisher/reports/quarterfull-project-probe.json
           retention-days: 3
