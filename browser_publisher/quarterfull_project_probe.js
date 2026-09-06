@@ -28,30 +28,27 @@ const fs = require('fs');
     });
   }
 
-  await page.goto('https://quarterfull.io/bookstore', { waitUntil: 'domcontentloaded', timeout: 60000 });
-  await page.waitForTimeout(1500);
-  const studio = page.locator('[data-testid="personal-canary-side-nav-newStudio"]');
-  if (await studio.count() && await studio.first().isVisible()) await studio.first().click();
-  else {
-    const matches = await page.getByText('Studio', { exact: true }).all();
-    for (const m of matches) if (await m.isVisible()) { await m.click(); break; }
-  }
-  await page.waitForTimeout(1800);
-  await snap('studio-authenticated');
+  // Direct route is more reliable than the SPA side-nav click in headless mode.
+  await page.goto('https://quarterfull.io/studio-cursor', { waitUntil: 'domcontentloaded', timeout: 60000 });
+  await page.waitForTimeout(2500);
+  await snap('studio-direct');
 
-  // The previously discovered create/start icon is the unique enabled icon-only
-  // button beside the author/project controls. Locate it by structure rather than
-  // by raw DOM index, which changes between renders.
+  const bodyText = await page.locator('body').innerText();
+  const authenticated = bodyText.includes('내 서재') || bodyText.includes('Library') || bodyText.includes('작가 혜택') || bodyText.includes('Writer Benefits');
+  out.push({ label: 'auth-check', authenticated, url: page.url() });
+
+  // Capture author/project area for structural discovery.
   const author = page.locator('[data-testid="studio-cursor-author-profile-trigger"]');
   if (await author.count()) {
-    const parent = author.first().locator('xpath=..');
-    out.push({ label: 'author-parent-html', html: (await parent.evaluate(e => e.parentElement?.outerHTML || e.outerHTML)).slice(0, 12000) });
+    const html = await author.first().evaluate(e => e.parentElement?.parentElement?.outerHTML || e.parentElement?.outerHTML || e.outerHTML);
+    out.push({ label: 'author-area-html', html: html.slice(0, 16000) });
   }
 
-  const iconCandidates = page.locator('button:visible');
+  // Look for the known anonymous icon-only create action near Studio controls.
+  const buttons = page.locator('button:visible');
   const candidates = [];
-  for (let i = 0; i < await iconCandidates.count(); i++) {
-    const b = iconCandidates.nth(i);
+  for (let i = 0; i < await buttons.count(); i++) {
+    const b = buttons.nth(i);
     if (!(await b.isEnabled())) continue;
     const text = ((await b.innerText().catch(() => '')) || '').replace(/\s+/g, ' ').trim();
     const aria = await b.getAttribute('aria-label');
@@ -63,11 +60,11 @@ const fs = require('fs');
   }
   out.push({ label: 'icon-candidates', candidates });
 
-  // Prefer the known glyph from the earlier successful discovery; fall back only
-  // when there is exactly one anonymous icon candidate.
   let target = null;
-  for (const c of candidates) if (c.text === '\uf172') { target = iconCandidates.nth(c.index); break; }
-  if (!target && candidates.length === 1) target = iconCandidates.nth(candidates[0].index);
+  // Earlier successful probe identified the create glyph as U+F172.
+  const known = candidates.find(c => c.text === '\uf172');
+  if (known) target = buttons.nth(known.index);
+  else if (candidates.length === 1) target = buttons.nth(candidates[0].index);
 
   if (target) {
     await target.click({ timeout: 5000 });
