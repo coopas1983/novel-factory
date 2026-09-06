@@ -26,15 +26,24 @@ const fs = require('fs');
     });
   }
 
+  async function clickVisibleText(name) {
+    const matches = await page.getByText(name, { exact: true }).all();
+    for (const m of matches) {
+      if (await m.isVisible()) {
+        await m.click({ timeout: 5000 });
+        return true;
+      }
+    }
+    return false;
+  }
+
   await page.goto('https://quarterfull.io/studio-cursor', { waitUntil: 'domcontentloaded', timeout: 60000 });
   await page.waitForTimeout(1500);
   await snap('studio-home');
 
   for (const name of ['Library', 'Bookstore', 'Studio']) {
     try {
-      const item = page.getByText(name, { exact: true }).filter({ visible: true });
-      if (await item.count()) {
-        await item.first().click({ timeout: 5000 });
+      if (await clickVisibleText(name)) {
         await page.waitForTimeout(1200);
         await snap(name.toLowerCase());
       } else {
