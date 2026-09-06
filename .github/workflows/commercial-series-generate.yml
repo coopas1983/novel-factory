@@ -30,6 +30,12 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Resolve episode from trigger
+        if: github.event_name == 'push'
+        run: |
+          EP=$(grep -oE '[3-9]|10' browser_publisher/commercial-series-trigger.txt | head -1)
+          test -n "$EP"
+          echo "EPISODE=$EP" >> "$GITHUB_ENV"
       - name: Generate and review episode
         run: python -m factory.commercial_series_episode
       - name: Upload generated episode
