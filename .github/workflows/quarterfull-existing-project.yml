@@ -1,0 +1,27 @@
+name: QuarterFull Existing Project Safe Select
+on:
+  push:
+    paths:
+      - 'browser_publisher/quarterfull-existing-project-trigger.txt'
+jobs:
+  select:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - working-directory: browser_publisher
+        run: |
+          npm install
+          npx playwright install --with-deps chromium
+      - name: Select existing QuarterFull project safely
+        working-directory: browser_publisher
+        env:
+          QUARTERFULL_STORAGE_STATE_B64: ${{ secrets.QUARTERFULL_STORAGE_STATE_B64 }}
+        run: node quarterfull_select_existing.js
+      - uses: actions/upload-artifact@v4
+        with:
+          name: quarterfull-existing-project-report
+          path: browser_publisher/reports/quarterfull-existing-project.json
+          retention-days: 3
