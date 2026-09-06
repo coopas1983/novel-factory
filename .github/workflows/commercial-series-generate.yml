@@ -1,0 +1,41 @@
+name: Commercial Series Generate
+
+on:
+  workflow_dispatch:
+    inputs:
+      episode:
+        description: "Episode number 3-10"
+        required: true
+        default: "3"
+  push:
+    paths:
+      - "factory/commercial_series_episode.py"
+      - "browser_publisher/commercial-series-trigger.txt"
+
+concurrency:
+  group: commercial-series-generate
+  cancel-in-progress: false
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+      EPISODE: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.episode || '3' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Generate and review episode
+        run: python -m factory.commercial_series_episode
+      - name: Upload generated episode
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: commercial-series-episode-${{ env.EPISODE }}
+          path: |
+            books/live-gemini-pilot/commercial/chapter-${{ env.EPISODE }}.md
+            books/live-gemini-pilot/commercial/chapter-${{ env.EPISODE }}-quality.json
+          if-no-files-found: warn
