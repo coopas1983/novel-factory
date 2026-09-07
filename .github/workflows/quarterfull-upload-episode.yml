@@ -1,0 +1,28 @@
+name: QuarterFull Upload Episode
+on:
+  push:
+    paths:
+      - 'browser_publisher/quarterfull-upload-trigger.txt'
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - working-directory: browser_publisher
+        run: |
+          npm install
+          npx playwright install --with-deps chromium
+      - name: Upload frozen episode to QuarterFull
+        working-directory: browser_publisher
+        env:
+          QUARTERFULL_STORAGE_STATE_B64: ${{ secrets.QUARTERFULL_STORAGE_STATE_B64 }}
+        run: node quarterfull_upload_episode.js
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: quarterfull-upload-report
+          path: browser_publisher/reports/quarterfull-upload-*.json
+          retention-days: 3
