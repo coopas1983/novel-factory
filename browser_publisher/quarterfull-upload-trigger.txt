@@ -1,1 +1,1 @@
-episode 9 solo bulk input retry 5
+episode 9 solo full editor replace retry 6
