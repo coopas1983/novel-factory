@@ -15,14 +15,30 @@ function loadEpisode(ep){
  if(q.gate!=='PASS'||q.lexical_preflight!=='PASS'||q.independent_reviewer!=='PASS'||q.continuity_reviewer!=='PASS'||(q.issues||[]).length) throw new Error(`QUALITY_GATE_BLOCK:${ep}`);
  return body;
 }
+async function ensureTarget(page){
+ await page.goto('https://quarterfull.io/studio-cursor',{waitUntil:'domcontentloaded',timeout:60000});
+ await page.waitForTimeout(4000);
+ let root=await page.locator('body').innerText();
+ if(!root.includes(TARGET)) throw new Error('TARGET_PROJECT_NOT_VISIBLE:'+TARGET);
+ if(!root.includes('작업 중: '+TARGET)){
+  const projects=page.getByText(TARGET,{exact:true});
+  let p=null; for(let i=0;i<await projects.count();i++){if(await projects.nth(i).isVisible()){p=projects.nth(i);break;}}
+  if(!p) p=projects.first();
+  await p.click({force:true}); await page.waitForTimeout(2500);
+ }
+ if(!(await page.locator('body').innerText()).includes('작업 중: '+TARGET)) throw new Error('TARGET_PROJECT_NOT_SELECTED');
+}
 async function chooseEpisode(page,label){
- const nodes=page.getByText(label,{exact:true});
+ const nodes=page.getByText(label,{exact:true}); let fallback=null;
  for(let i=0;i<await nodes.count();i++){
   const n=nodes.nth(i);
   const chain=await n.evaluate(e=>{let s='',p=e; for(let k=0;k<7&&p;k++,p=p.parentElement) s+=' '+(p.textContent||''); return s.slice(0,5000);});
-  if(chain.includes(`/원고(출간용)/${label}`)) return n;
+  if(chain.includes(`/원고(출간용)/${label}`)){
+   if(await n.isVisible()) return n;
+   if(!fallback) fallback=n;
+  }
  }
- return null;
+ return fallback;
 }
 async function waitForDocPath(page,label,timeout=30000){
  const path=`/원고(출간용)/${label}`; const end=Date.now()+timeout;
@@ -44,32 +60,20 @@ async function ensureDoc(page,ep){
  return node;
 }
 async function activateEpisode(node){
- await node.evaluate(e=>{
-  e.dispatchEvent(new MouseEvent('mousedown',{bubbles:true,cancelable:true,view:window}));
-  e.dispatchEvent(new MouseEvent('mouseup',{bubbles:true,cancelable:true,view:window}));
-  e.dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true,view:window}));
- });
+ if(await node.isVisible()){await node.click({force:true}); return;}
+ await node.evaluate(e=>e.dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true,view:window})));
 }
 (async()=>{
  const browser=await chromium.launch({headless:true});
  const ctx=await browser.newContext({storageState:loadState('quarterfull')});
  const page=await ctx.newPage();
- await page.goto('https://quarterfull.io/studio-cursor',{waitUntil:'domcontentloaded',timeout:60000});
- await page.waitForTimeout(4000);
- let root=await page.locator('body').innerText();
- if(!root.includes(TARGET)) throw new Error('TARGET_PROJECT_NOT_VISIBLE:'+TARGET);
- if(!root.includes('작업 중: '+TARGET)){
-  const project=page.getByText(TARGET,{exact:true});
-  if(await project.count()===0) throw new Error('TARGET_PROJECT_EXACT_NOT_FOUND');
-  await project.first().click(); await page.waitForTimeout(2200);
- }
- if(!(await page.locator('body').innerText()).includes('작업 중: '+TARGET)) throw new Error('TARGET_PROJECT_NOT_SELECTED');
  fs.mkdirSync('reports',{recursive:true});
  const results=[];
  for(const ep of episodes){
+  await ensureTarget(page);
   const body=loadEpisode(ep), label=`${ep}화`;
   const node=await ensureDoc(page,ep);
-  await activateEpisode(node); await page.waitForTimeout(2800);
+  await activateEpisode(node); await page.waitForTimeout(3000);
   const current=await page.locator('body').innerText();
   if(!current.includes('작업 중: '+TARGET)||!current.includes(`/원고(출간용)/${label}`)||!current.includes(`${label}\nrevision`)) throw new Error(`EPISODE_SELECTION_UNVERIFIED:${ep}`);
   let editor=page.locator('div.tiptap.ProseMirror[contenteditable="true"]');
