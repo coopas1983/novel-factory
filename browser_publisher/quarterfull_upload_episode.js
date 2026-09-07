@@ -77,7 +77,7 @@ async function activateEpisode(node){
   const current=await page.locator('body').innerText();
   if(!current.includes('작업 중: '+TARGET)||!current.includes(`/원고(출간용)/${label}`)||!current.includes(`${label}\nrevision`)) throw new Error(`EPISODE_SELECTION_UNVERIFIED:${ep}`);
   let editor=page.locator('div.tiptap.ProseMirror[contenteditable="true"]');
-  await editor.waitFor({state:'visible',timeout:10000}); editor=editor.first();
+  await editor.waitFor({state:'visible',timeout:30000}); editor=editor.first();
   await editor.click(); await editor.press(process.platform==='darwin'?'Meta+A':'Control+A'); await editor.fill(body);
   await page.waitForTimeout(5000);
   const readback=(await editor.innerText()).trim();
