@@ -21,10 +21,9 @@ async function ensureTarget(page){
  let root=await page.locator('body').innerText();
  if(!root.includes(TARGET)) throw new Error('TARGET_PROJECT_NOT_VISIBLE:'+TARGET);
  if(!root.includes('작업 중: '+TARGET)){
-  const projects=page.getByText(TARGET,{exact:true});
-  let p=null; for(let i=0;i<await projects.count();i++){if(await projects.nth(i).isVisible()){p=projects.nth(i);break;}}
-  if(!p) p=projects.first();
-  await p.click({force:true}); await page.waitForTimeout(2500);
+  const projects=page.getByText(TARGET,{exact:true}); let p=null;
+  for(let i=0;i<await projects.count();i++){if(await projects.nth(i).isVisible()){p=projects.nth(i);break;}}
+  if(!p) p=projects.first(); await p.click({force:true}); await page.waitForTimeout(2500);
  }
  if(!(await page.locator('body').innerText()).includes('작업 중: '+TARGET)) throw new Error('TARGET_PROJECT_NOT_SELECTED');
 }
@@ -33,61 +32,48 @@ async function chooseEpisode(page,label){
  for(let i=0;i<await nodes.count();i++){
   const n=nodes.nth(i);
   const chain=await n.evaluate(e=>{let s='',p=e; for(let k=0;k<7&&p;k++,p=p.parentElement) s+=' '+(p.textContent||''); return s.slice(0,5000);});
-  if(chain.includes(`/원고(출간용)/${label}`)){
-   if(await n.isVisible()) return n;
-   if(!fallback) fallback=n;
-  }
+  if(chain.includes(`/원고(출간용)/${label}`)){if(await n.isVisible()) return n; if(!fallback) fallback=n;}
  }
  return fallback;
 }
 async function waitForDocPath(page,label,timeout=30000){
- const path=`/원고(출간용)/${label}`; const end=Date.now()+timeout;
- while(Date.now()<end){ if((await page.locator('body').innerText()).includes(path)){const n=await chooseEpisode(page,label); if(n) return n;} await page.waitForTimeout(1000); }
- return null;
+ const path=`/원고(출간용)/${label}`, end=Date.now()+timeout;
+ while(Date.now()<end){if((await page.locator('body').innerText()).includes(path)){const n=await chooseEpisode(page,label); if(n) return n;} await page.waitForTimeout(1000);} return null;
 }
 async function ensureDoc(page,ep){
- const label=`${ep}화`;
- let node=await waitForDocPath(page,label,3000);
- if(node) return node;
- const ai=page.locator('textarea[placeholder="무엇을 만들고 싶은지 말해주세요."]');
- if(await ai.count()===0) throw new Error(`AI_COMMAND_BOX_NOT_FOUND:${ep}`);
+ const label=`${ep}화`; let node=await waitForDocPath(page,label,3000); if(node) return node;
+ const ai=page.locator('textarea[placeholder="무엇을 만들고 싶은지 말해주세요."]'); if(await ai.count()===0) throw new Error(`AI_COMMAND_BOX_NOT_FOUND:${ep}`);
  await ai.fill(`현재 작업 중인 작품 ${TARGET}에서 기존 회차는 절대 수정하지 말고, 원고(출간용) 폴더 아래에 새 문서 ${label}를 생성만 해줘. ${label} 본문은 작성하거나 수정하지 마.`);
  const send=page.locator('button[aria-label="전송"]');
- await page.waitForFunction(()=>{const b=document.querySelector('button[aria-label="전송"]'); return b && !b.disabled;},{timeout:5000});
- await send.click();
- node=await waitForDocPath(page,label,35000);
- if(!node) throw new Error(`EPISODE_CREATE_FAILED:${label}`);
- return node;
+ await page.waitForFunction(()=>{const b=document.querySelector('button[aria-label="전송"]'); return b && !b.disabled;},{timeout:5000}); await send.click();
+ node=await waitForDocPath(page,label,35000); if(!node) throw new Error(`EPISODE_CREATE_FAILED:${label}`); return node;
 }
-async function activateEpisode(node){
- if(await node.isVisible()){await node.click({force:true}); return;}
- await node.evaluate(e=>e.dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true,view:window})));
+async function activateEpisode(page,node,label){
+ const editor=page.locator('div.tiptap.ProseMirror[contenteditable="true"]');
+ for(let attempt=1;attempt<=4;attempt++){
+  try{
+   if(await node.isVisible()) await node.click({force:true});
+   else await node.evaluate(e=>e.dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true,view:window})));
+  }catch(e){}
+  try{await editor.waitFor({state:'visible',timeout:15000}); return editor.first();}catch(e){}
+  await page.waitForTimeout(1500);
+  node=await chooseEpisode(page,label)||node;
+ }
+ throw new Error(`EDITOR_NOT_FOUND_AFTER_RETRIES:${label}`);
 }
 (async()=>{
- const browser=await chromium.launch({headless:true});
- const ctx=await browser.newContext({storageState:loadState('quarterfull')});
- const page=await ctx.newPage();
- fs.mkdirSync('reports',{recursive:true});
- const results=[];
+ const browser=await chromium.launch({headless:true}); const ctx=await browser.newContext({storageState:loadState('quarterfull')}); const page=await ctx.newPage();
+ fs.mkdirSync('reports',{recursive:true}); const results=[];
  for(const ep of episodes){
-  await ensureTarget(page);
-  const body=loadEpisode(ep), label=`${ep}화`;
-  const node=await ensureDoc(page,ep);
-  await activateEpisode(node); await page.waitForTimeout(3000);
+  await ensureTarget(page); const body=loadEpisode(ep), label=`${ep}화`; const node=await ensureDoc(page,ep);
+  const editor=await activateEpisode(page,node,label);
   const current=await page.locator('body').innerText();
   if(!current.includes('작업 중: '+TARGET)||!current.includes(`/원고(출간용)/${label}`)||!current.includes(`${label}\nrevision`)) throw new Error(`EPISODE_SELECTION_UNVERIFIED:${ep}`);
-  let editor=page.locator('div.tiptap.ProseMirror[contenteditable="true"]');
-  await editor.waitFor({state:'visible',timeout:30000}); editor=editor.first();
-  await editor.click(); await editor.press(process.platform==='darwin'?'Meta+A':'Control+A'); await editor.fill(body);
-  await page.waitForTimeout(5000);
-  const readback=(await editor.innerText()).trim();
-  if(norm(readback)!==norm(body)) throw new Error(`READBACK_MISMATCH:${ep}:${readback.length}:${body.length}`);
-  await page.waitForTimeout(4000);
-  const verified=norm((await editor.innerText()).trim())===norm(body);
-  if(!verified) throw new Error(`FINAL_READBACK_MISMATCH:${ep}`);
+  await editor.click(); await editor.press(process.platform==='darwin'?'Meta+A':'Control+A'); await editor.fill(body); await page.waitForTimeout(5000);
+  const readback=(await editor.innerText()).trim(); if(norm(readback)!==norm(body)) throw new Error(`READBACK_MISMATCH:${ep}:${readback.length}:${body.length}`);
+  await page.waitForTimeout(4000); const verified=norm((await editor.innerText()).trim())===norm(body); if(!verified) throw new Error(`FINAL_READBACK_MISMATCH:${ep}`);
   const r={platform:'quarterfull',episode:ep,target:TARGET,chars:body.length,verified,status:'DRAFT_SAVED_VERIFIED'};
   fs.writeFileSync(`reports/quarterfull-upload-${ep}.json`,JSON.stringify(r,null,2)); results.push(r); console.log(JSON.stringify(r));
  }
- console.log('BATCH_OK',JSON.stringify(results.map(x=>x.episode)));
- await browser.close();
+ console.log('BATCH_OK',JSON.stringify(results.map(x=>x.episode))); await browser.close();
 })().catch(e=>{console.error(e);process.exit(1)});
