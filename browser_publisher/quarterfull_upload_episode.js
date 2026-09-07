@@ -43,6 +43,13 @@ async function ensureDoc(page,ep){
  if(!node) throw new Error(`EPISODE_CREATE_FAILED:${label}`);
  return node;
 }
+async function activateEpisode(node){
+ await node.evaluate(e=>{
+  e.dispatchEvent(new MouseEvent('mousedown',{bubbles:true,cancelable:true,view:window}));
+  e.dispatchEvent(new MouseEvent('mouseup',{bubbles:true,cancelable:true,view:window}));
+  e.dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true,view:window}));
+ });
+}
 (async()=>{
  const browser=await chromium.launch({headless:true});
  const ctx=await browser.newContext({storageState:loadState('quarterfull')});
@@ -62,7 +69,7 @@ async function ensureDoc(page,ep){
  for(const ep of episodes){
   const body=loadEpisode(ep), label=`${ep}화`;
   const node=await ensureDoc(page,ep);
-  await node.click(); await page.waitForTimeout(2800);
+  await activateEpisode(node); await page.waitForTimeout(2800);
   const current=await page.locator('body').innerText();
   if(!current.includes('작업 중: '+TARGET)||!current.includes(`/원고(출간용)/${label}`)||!current.includes(`${label}\nrevision`)) throw new Error(`EPISODE_SELECTION_UNVERIFIED:${ep}`);
   let editor=page.locator('div.tiptap.ProseMirror[contenteditable="true"]');
