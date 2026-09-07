@@ -17,17 +17,21 @@ function loadEpisode(ep){
 }
 async function chooseEpisode(page,label){
  const nodes=page.getByText(label,{exact:true});
- if(await nodes.count()===0) return null;
  for(let i=0;i<await nodes.count();i++){
   const n=nodes.nth(i);
-  const p=await n.evaluate(e=>(e.parentElement&&e.parentElement.textContent||'')+' '+(e.parentElement&&e.parentElement.parentElement&&e.parentElement.parentElement.textContent||''));
-  if(p.includes(`/원고(출간용)/${label}`)) return n;
+  const chain=await n.evaluate(e=>{let s='',p=e; for(let k=0;k<7&&p;k++,p=p.parentElement) s+=' '+(p.textContent||''); return s.slice(0,5000);});
+  if(chain.includes(`/원고(출간용)/${label}`)) return n;
  }
- return nodes.last();
+ return null;
+}
+async function waitForDocPath(page,label,timeout=30000){
+ const path=`/원고(출간용)/${label}`; const end=Date.now()+timeout;
+ while(Date.now()<end){ if((await page.locator('body').innerText()).includes(path)){const n=await chooseEpisode(page,label); if(n) return n;} await page.waitForTimeout(1000); }
+ return null;
 }
 async function ensureDoc(page,ep){
  const label=`${ep}화`;
- let node=await chooseEpisode(page,label);
+ let node=await waitForDocPath(page,label,3000);
  if(node) return node;
  const ai=page.locator('textarea[placeholder="무엇을 만들고 싶은지 말해주세요."]');
  if(await ai.count()===0) throw new Error(`AI_COMMAND_BOX_NOT_FOUND:${ep}`);
@@ -35,12 +39,9 @@ async function ensureDoc(page,ep){
  const send=page.locator('button[aria-label="전송"]');
  await page.waitForFunction(()=>{const b=document.querySelector('button[aria-label="전송"]'); return b && !b.disabled;},{timeout:5000});
  await send.click();
- for(let i=0;i<28;i++){
-  await page.waitForTimeout(1000);
-  node=await chooseEpisode(page,label);
-  if(node) return node;
- }
- throw new Error(`EPISODE_CREATE_FAILED:${label}`);
+ node=await waitForDocPath(page,label,35000);
+ if(!node) throw new Error(`EPISODE_CREATE_FAILED:${label}`);
+ return node;
 }
 (async()=>{
  const browser=await chromium.launch({headless:true});
@@ -59,19 +60,18 @@ async function ensureDoc(page,ep){
  fs.mkdirSync('reports',{recursive:true});
  const results=[];
  for(const ep of episodes){
-  const body=loadEpisode(ep); const label=`${ep}화`;
-  let node=await ensureDoc(page,ep);
-  await node.click(); await page.waitForTimeout(2500);
+  const body=loadEpisode(ep), label=`${ep}화`;
+  const node=await ensureDoc(page,ep);
+  await node.click(); await page.waitForTimeout(2800);
   const current=await page.locator('body').innerText();
-  if(!current.includes('작업 중: '+TARGET)||!current.includes(`/원고(출간용)/${label}`)) throw new Error(`EPISODE_SELECTION_UNVERIFIED:${ep}`);
+  if(!current.includes('작업 중: '+TARGET)||!current.includes(`/원고(출간용)/${label}`)||!current.includes(`${label}\nrevision`)) throw new Error(`EPISODE_SELECTION_UNVERIFIED:${ep}`);
   let editor=page.locator('div.tiptap.ProseMirror[contenteditable="true"]');
-  await editor.waitFor({state:'visible',timeout:8000});
-  editor=editor.first();
+  await editor.waitFor({state:'visible',timeout:10000}); editor=editor.first();
   await editor.click(); await editor.press(process.platform==='darwin'?'Meta+A':'Control+A'); await editor.fill(body);
-  await page.waitForTimeout(4500);
+  await page.waitForTimeout(5000);
   const readback=(await editor.innerText()).trim();
   if(norm(readback)!==norm(body)) throw new Error(`READBACK_MISMATCH:${ep}:${readback.length}:${body.length}`);
-  await page.waitForTimeout(3500);
+  await page.waitForTimeout(4000);
   const verified=norm((await editor.innerText()).trim())===norm(body);
   if(!verified) throw new Error(`FINAL_READBACK_MISMATCH:${ep}`);
   const r={platform:'quarterfull',episode:ep,target:TARGET,chars:body.length,verified,status:'DRAFT_SAVED_VERIFIED'};
