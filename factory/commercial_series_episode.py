@@ -9,7 +9,7 @@ from factory.lexical_preflight import scan_lexical, apply_lexical_fixes
 
 BOOK=Path('books/live-gemini-pilot')
 MIN_VISIBLE_CHARS=3500; TARGET_VISIBLE_MIN=3700; TARGET_VISIBLE_MAX=4200; MAX_VISIBLE_CHARS=4400
-MAX_EXPANSION_PASSES=3; MAX_CONTRACTION_PASSES=4; MAX_REPAIR_PASSES=2; MAX_CONTINUITY_REVIEW_ATTEMPTS=2
+MAX_EXPANSION_PASSES=5; MAX_CONTRACTION_PASSES=4; MAX_REPAIR_PASSES=2; MAX_CONTINUITY_REVIEW_ATTEMPTS=2
 EP3_LOCK='''3화는 반드시 2화의 마지막 직후에서 시작한다. 확정 연속성: 예약 통화 시각 03:30, 발신자 강이현, 발신 위치 7층 비상구 내부. CCTV에는 강이현과 같은 옷을 입은 검은 그림자/도플갱어가 구조된 여성 뒤에 있었고 카메라를 향해 목을 긋는 동작을 했다. 첫 규칙은 비정상 전화를 해결하면 현실의 빚 상환이 발생할 수 있다는 것. 이 사실들을 리셋하거나 꿈/착각으로 무효화하지 마라.'''
 
 def clean(s):
@@ -47,7 +47,8 @@ def make_prompt(episode,previous,bible,ep,memory):
 {context_text(previous)}'''
 
 def expansion_prompt(episode,text):
-    return f'''아래 {episode}화 원고를 공백/줄바꿈 제외 {TARGET_VISIBLE_MIN}~{TARGET_VISIBLE_MAX}자로 확장하라. 기존 사건 순서와 결말 훅 유지. 반복/재진술/풍경 늘이기 없이 실질적 사건, 대화, 단서, 선택만 보강. 원고 전체만 출력.\n[원고]\n{text}'''
+    current=visible_chars(text); need=max(0,TARGET_VISIBLE_MIN-current)
+    return f'''아래 {episode}화 원고는 현재 공백/줄바꿈 제외 약 {current}자다. 기존 문장을 요약하거나 삭제하지 말고 최소 {need+300}자 분량의 실질 내용을 추가하여 최종 {TARGET_VISIBLE_MIN}~{TARGET_VISIBLE_MAX}자로 확장하라. 기존 사건 순서와 결말 훅 유지. 반복/재진술/풍경 늘이기 금지. 행동, 대화, 단서, 선택, 갈등의 구체적 장면만 보강한다. 원고 전체만 출력.\n[원고]\n{text}'''
 def contraction_prompt(episode,text):
     return f'''아래 {episode}화 원고를 핵심 사건/단서/인과/결말 훅을 유지하며 공백/줄바꿈 제외 {TARGET_VISIBLE_MIN}~{TARGET_VISIBLE_MAX}자로 압축하라. 중복만 제거하고 새 설정 추가 금지. 원고 전체만 출력.\n[원고]\n{text}'''
 def repair_prompt(episode,text,issues):
@@ -84,7 +85,7 @@ def deterministic_issues(text):
 def main():
     episode=int(os.environ.get('EPISODE','3')); previous,bible,ep,memory=load_context(episode); cfg=config_from_env()
     text=clean(generate(cfg,make_prompt(episode,previous,bible,ep,memory))); generation_passes=1; expansion_passes=contraction_passes=repair_passes=0
-    while visible_chars(text)<MIN_VISIBLE_CHARS and expansion_passes<MAX_EXPANSION_PASSES:
+    while visible_chars(text)<TARGET_VISIBLE_MIN and expansion_passes<MAX_EXPANSION_PASSES:
         candidate=clean(generate(cfg,expansion_prompt(episode,text))); expansion_passes+=1; generation_passes+=1
         if visible_chars(candidate)>visible_chars(text): text=candidate
     while visible_chars(text)>MAX_VISIBLE_CHARS and contraction_passes<MAX_CONTRACTION_PASSES:
