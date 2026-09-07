@@ -1,1 +1,1 @@
-episode 9 solo retry 4
+episode 9 solo bulk input retry 5
