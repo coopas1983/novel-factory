@@ -9,7 +9,7 @@ from factory.lexical_preflight import scan_lexical, apply_lexical_fixes
 
 BOOK=Path('books/live-gemini-pilot')
 MIN_VISIBLE_CHARS=3500; TARGET_VISIBLE_MIN=3700; TARGET_VISIBLE_MAX=4200; MAX_VISIBLE_CHARS=4400
-MAX_EXPANSION_PASSES=3; MAX_CONTRACTION_PASSES=2; MAX_REPAIR_PASSES=2; MAX_CONTINUITY_REVIEW_ATTEMPTS=2
+MAX_EXPANSION_PASSES=3; MAX_CONTRACTION_PASSES=4; MAX_REPAIR_PASSES=2; MAX_CONTINUITY_REVIEW_ATTEMPTS=2
 EP3_LOCK='''3화는 반드시 2화의 마지막 직후에서 시작한다. 확정 연속성: 예약 통화 시각 03:30, 발신자 강이현, 발신 위치 7층 비상구 내부. CCTV에는 강이현과 같은 옷을 입은 검은 그림자/도플갱어가 구조된 여성 뒤에 있었고 카메라를 향해 목을 긋는 동작을 했다. 첫 규칙은 비정상 전화를 해결하면 현실의 빚 상환이 발생할 수 있다는 것. 이 사실들을 리셋하거나 꿈/착각으로 무효화하지 마라.'''
 
 def clean(s):
@@ -33,7 +33,7 @@ def context_text(previous):
     return '\n\n'.join(f'[발행/고정 {n}화]\n{text}' for n,text in previous)
 
 def make_prompt(episode,previous,bible,ep,memory):
-    locks=EP3_LOCK if episode==3 else '이전 고정 원고들의 확정 사실과 인과관계를 임의 변경하지 마라. 바로 직전 화의 마지막 훅에서 자연스럽게 이어라.'
+    locks=EP3_LOCK if episode==3 else '이전 고정 원고들의 확정 사실과 인과관계를 임의 변경하지 마라. 바로 직전 화의 마지막 훅에서 자연스럽게 이어라. 강이현의 야간 콜센터 상담 경력은 2개월로 고정한다.'
     return f'''당신은 한국 상업 웹소설 작가다. 작품은 '자정 이후의 콜센터'다. 지금부터 {episode}화를 쓴다.
 이전 회차를 다시 쓰거나 요약하지 마라. {locks}
 이번 화 아웃라인: {json.dumps(ep,ensure_ascii=False)}
