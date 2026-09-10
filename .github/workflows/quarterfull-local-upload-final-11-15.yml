@@ -1,0 +1,34 @@
+name: QuarterFull Local Upload Final 11-15
+
+on:
+  push:
+    paths:
+      - 'browser_publisher/quarterfull-final-upload-trigger.txt'
+
+concurrency:
+  group: quarterfull-local-profile
+  cancel-in-progress: false
+
+jobs:
+  upload:
+    runs-on: [self-hosted, Windows, quarterfull]
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install publisher dependencies
+        working-directory: browser_publisher
+        shell: cmd
+        run: npm install
+      - name: Upload QuarterFull final arc 11-15
+        working-directory: browser_publisher
+        shell: cmd
+        run: node quarterfull_local_upload_final_11_15.js
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: quarterfull-final-upload-report
+          path: browser_publisher/reports/quarterfull-local-upload-final-11-15.json
+          retention-days: 7
