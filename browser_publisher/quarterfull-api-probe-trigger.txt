@@ -1,1 +1,1 @@
-probe quarterfull api state run 5 - discover loaded app resources for durable auth
+probe quarterfull api state run 6 - inspect refresh request contract safely
