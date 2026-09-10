@@ -1,1 +1,1 @@
-probe quarterfull api state run 4 - verify refreshed auth and episode 2/3 state
+probe quarterfull api state run 5 - discover loaded app resources for durable auth
