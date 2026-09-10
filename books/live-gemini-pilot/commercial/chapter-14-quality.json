@@ -1,0 +1,23 @@
+{
+  "episode": 14,
+  "chars_with_spaces": 4655,
+  "chars_without_whitespace": 3503,
+  "target_chars_without_whitespace": [
+    3700,
+    4200
+  ],
+  "generation_passes": 5,
+  "expansion_passes": 4,
+  "contraction_passes": 0,
+  "repair_passes": 0,
+  "lexical_preflight_final": [],
+  "final_review_issues": [],
+  "continuity_issues": [],
+  "issues": [],
+  "lexical_preflight": "PASS",
+  "independent_reviewer": "PASS",
+  "continuity_reviewer": "PASS",
+  "gate": "PASS",
+  "publication_state": "DRAFT_REVIEWED",
+  "full_attempt": 1
+}
