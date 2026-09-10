@@ -1,1 +1,1 @@
-probe quarterfull api state run 7 - inspect token persistence and bundle refresh logic
+probe quarterfull api state run 8 - inspect refresh persistence implementation
