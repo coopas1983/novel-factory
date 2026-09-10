@@ -8,7 +8,7 @@ on:
 
 concurrency:
   group: quarterfull-local-profile
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   sync:
