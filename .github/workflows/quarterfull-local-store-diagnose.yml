@@ -1,0 +1,35 @@
+name: QuarterFull Local Store Diagnose
+
+on:
+  push:
+    paths:
+      - 'browser_publisher/quarterfull-local-store-diagnose-trigger.txt'
+  workflow_dispatch:
+
+concurrency:
+  group: quarterfull-local-profile
+  cancel-in-progress: false
+
+jobs:
+  diagnose:
+    runs-on: [self-hosted, Windows, quarterfull]
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install publisher dependencies
+        working-directory: browser_publisher
+        shell: cmd
+        run: npm install
+      - name: Diagnose QuarterFull store button read-only
+        working-directory: browser_publisher
+        shell: cmd
+        run: node quarterfull_local_store_diagnose.js
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: quarterfull-local-store-diagnose-report
+          path: browser_publisher/reports/quarterfull-local-store-diagnose.json
+          retention-days: 7
