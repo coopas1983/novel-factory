@@ -1,0 +1,1 @@
+diagnose file api paths
