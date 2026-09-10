@@ -23,7 +23,7 @@ jobs:
         working-directory: browser_publisher
         shell: cmd
         run: npm install
-      - name: Publish QuarterFull chapters sequentially
+      - name: Publish QuarterFull chapters through exact-scoped UI
         working-directory: browser_publisher
         shell: cmd
-        run: node quarterfull_local_publish_chapters.js
+        run: node quarterfull_local_publish_ui.js
