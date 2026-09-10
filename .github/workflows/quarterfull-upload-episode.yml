@@ -3,6 +3,9 @@ on:
   push:
     paths:
       - 'browser_publisher/quarterfull-upload-trigger.txt'
+concurrency:
+  group: quarterfull-auth-session
+  cancel-in-progress: false
 jobs:
   upload:
     runs-on: ubuntu-latest
