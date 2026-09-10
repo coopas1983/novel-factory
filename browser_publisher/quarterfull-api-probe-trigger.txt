@@ -1,1 +1,1 @@
-probe quarterfull api state run 6 - inspect refresh request contract safely
+probe quarterfull api state run 7 - inspect token persistence and bundle refresh logic
