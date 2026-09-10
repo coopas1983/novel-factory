@@ -57,6 +57,17 @@ function contentOf(r) {
   return r?.json?.file?.content ?? r?.json?.content ?? '';
 }
 
+async function resolveExistingPath(page, ep) {
+  const candidates = [`/project/원고/${ep}화.md`, `/project/원고(출간용)/${ep}화.md`];
+  const hits = [];
+  for (const p of candidates) {
+    const r = await readFile(page, p);
+    if (r.ok) hits.push(p);
+  }
+  if (hits.length > 1) throw new Error(`MULTIPLE_EPISODE_PATHS:${ep}:${hits.join('|')}`);
+  return hits[0] || null;
+}
+
 async function ensureTarget(page) {
   let projectsStatus = null;
   const listener = r => { if (r.url() === `${API}/studio-cursor/projects`) projectsStatus = r.status(); };
@@ -109,20 +120,47 @@ async function visibleEditor(page) {
   return null;
 }
 
+async function waitEditor(page, timeout = 15000) {
+  const end = Date.now() + timeout;
+  while (Date.now() < end) {
+    const e = await visibleEditor(page);
+    if (e) return e;
+    await sleep(300);
+  }
+  return null;
+}
+
 async function openEpisode(page, ep) {
-  const node = await waitForNode(page, ep, 6000);
+  let node = await waitForNode(page, ep, 6000);
   if (!node) return null;
   lastLoadedPath = null;
   await node.click({ force: true });
-  const end = Date.now() + 15000;
+
+  let end = Date.now() + 5000;
   while (Date.now() < end && !allowedPath(ep, lastLoadedPath)) await sleep(250);
-  if (!allowedPath(ep, lastLoadedPath)) throw new Error(`EPISODE_LOAD_UNVERIFIED:${ep}:${lastLoadedPath || 'NONE'}`);
-  let editor = null;
-  const eEnd = Date.now() + 10000;
-  while (Date.now() < eEnd && !editor) { editor = await visibleEditor(page); if (!editor) await sleep(250); }
+  let resolved = allowedPath(ep, lastLoadedPath) ? lastLoadedPath : await resolveExistingPath(page, ep);
+  if (!resolved) throw new Error(`EPISODE_FILE_NOT_FOUND:${ep}`);
+
+  let editor = await waitEditor(page, 7000);
+  if (!editor && ep !== 10) {
+    const sentinel = await waitForNode(page, 10, 5000);
+    if (!sentinel) throw new Error('SENTINEL_10_NODE_MISSING');
+    lastLoadedPath = null;
+    await sentinel.click({ force: true });
+    await sleep(1800);
+    node = await waitForNode(page, ep, 5000);
+    if (!node) throw new Error(`EPISODE_NODE_LOST:${ep}`);
+    lastLoadedPath = null;
+    await node.click({ force: true });
+    end = Date.now() + 7000;
+    while (Date.now() < end && !allowedPath(ep, lastLoadedPath)) await sleep(250);
+    resolved = allowedPath(ep, lastLoadedPath) ? lastLoadedPath : await resolveExistingPath(page, ep);
+    editor = await waitEditor(page, 15000);
+  }
   if (!editor) throw new Error(`EDITOR_NOT_VISIBLE:${ep}`);
+  if (!resolved || !allowedPath(ep, resolved)) throw new Error(`EPISODE_LOAD_UNVERIFIED:${ep}:${resolved || 'NONE'}`);
   await sleep(800);
-  return { editor, loadedPath: lastLoadedPath };
+  return { editor, loadedPath: resolved };
 }
 
 async function createEpisode(page, ep) {
@@ -135,7 +173,7 @@ async function createEpisode(page, ep) {
   await send.click();
   const node = await waitForNode(page, ep, 45000);
   if (!node) throw new Error(`EPISODE_CREATE_FAILED:${ep}`);
-  await sleep(1500);
+  await sleep(1800);
 }
 
 async function replaceEditor(page, editor, body) {
@@ -173,9 +211,7 @@ async function ensureDraft(page, ep, body) {
   }
 
   let s = await readFile(page, src);
-  if (!s.ok) {
-    await createEpisode(page, ep);
-  }
+  if (!s.ok) await createEpisode(page, ep);
 
   const opened = await openEpisode(page, ep);
   if (!opened) throw new Error(`EPISODE_NOT_OPENABLE:${ep}`);
