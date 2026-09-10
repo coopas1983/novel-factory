@@ -1,0 +1,56 @@
+name: Final Arc Generate 13-15
+
+on:
+  push:
+    paths:
+      - "browser_publisher/final-arc-batch-13-15.txt"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: final-arc-generate-rest
+  cancel-in-progress: false
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      NOVEL_FACTORY_PROVIDER: gemini
+      GEMINI_MODEL: gemini-3.6-flash
+      GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Generate freeze episodes 13 to 15 sequentially
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "novel-factory-bot"
+          git config user.email "actions@users.noreply.github.com"
+          for EP in 13 14 15; do
+            echo "=== FINAL ARC EPISODE $EP ==="
+            EPISODE="$EP" python -m factory.final_arc_episode
+            git add "books/live-gemini-pilot/commercial/chapter-${EP}.md" "books/live-gemini-pilot/commercial/chapter-${EP}-quality.json"
+            git diff --cached --check
+            git commit -m "Freeze final arc episode ${EP} PASS"
+            git push
+          done
+      - name: Upload final arc 13-15
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: final-arc-episodes-13-15
+          path: |
+            books/live-gemini-pilot/commercial/chapter-13.md
+            books/live-gemini-pilot/commercial/chapter-13-quality.json
+            books/live-gemini-pilot/commercial/chapter-14.md
+            books/live-gemini-pilot/commercial/chapter-14-quality.json
+            books/live-gemini-pilot/commercial/chapter-15.md
+            books/live-gemini-pilot/commercial/chapter-15-quality.json
+          if-no-files-found: warn
