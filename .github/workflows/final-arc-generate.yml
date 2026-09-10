@@ -3,7 +3,7 @@ name: Final Arc Generate
 on:
   push:
     paths:
-      - "browser_publisher/final-arc-trigger.txt"
+      - "browser_publisher/final-arc-trigger-*.txt"
 
 permissions:
   contents: write
@@ -30,7 +30,8 @@ jobs:
       - name: Resolve final arc episode
         shell: bash
         run: |
-          EP=$(grep -oE '1[1-5]' browser_publisher/final-arc-trigger.txt | head -1)
+          FILE=$(ls browser_publisher/final-arc-trigger-*.txt | sort -V | tail -1)
+          EP=$(grep -oE '1[1-5]' "$FILE" | head -1)
           test -n "$EP"
           echo "EPISODE=$EP" >> "$GITHUB_ENV"
       - name: Generate and review final arc episode
