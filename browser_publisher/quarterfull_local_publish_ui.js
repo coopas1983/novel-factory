@@ -154,7 +154,7 @@ async function confirmIfNeeded(page) {
 
 (async () => {
   const eps = parseEpisodes(TRIGGER);
-  if (eps.some(x => x < 2 || x > 10)) throw new Error('EP_RANGE_INVALID');
+  if (eps.some(x => x < 2 || x > 15)) throw new Error('EP_RANGE_INVALID');
   const ctx = await chromium.launchPersistentContext(PROFILE, { channel:'chrome', headless:true, args:['--profile-directory=Default'] });
   try {
     const page = ctx.pages()[0] || await ctx.newPage();
@@ -164,7 +164,7 @@ async function confirmIfNeeded(page) {
         requests.push({ method:r.method(), url:r.url(), postData:r.postData() });
       }
     });
-    await page.setViewportSize({width:1440,height:1200});
+    await page.setViewportSize({width:1440,height:1400});
     await page.goto('https://quarterfull.io/studio-cursor', { waitUntil:'domcontentloaded', timeout:60000 });
     await sleep(6000);
     if (!(await page.locator('body').innerText()).includes(TARGET)) throw new Error('TARGET_NOT_VISIBLE');
@@ -180,7 +180,7 @@ async function confirmIfNeeded(page) {
     const results = [];
     for (const ep of eps) {
       let s = await getSummaries(page);
-      if (s.length !== 10) throw new Error(`EXPECTED_10_CHAPTERS:${s.length}`);
+      if (s.length !== 15) throw new Error(`EXPECTED_15_CHAPTERS:${s.length}`);
       const prev = s.find(x => x.title === `${ep-1}화`);
       const cur = s.find(x => x.title === `${ep}화`);
       if (!cur) throw new Error(`CHAPTER_NOT_FOUND:${ep}`);
