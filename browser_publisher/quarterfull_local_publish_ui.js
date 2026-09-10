@@ -71,12 +71,6 @@ async function clickExactChapterPublic(page, ep) {
         const visible = style.display !== 'none' && style.visibility !== 'hidden' && el.getBoundingClientRect().width > 0 && el.getBoundingClientRect().height > 0;
         const disabled = el.disabled === true || el.getAttribute('aria-disabled') === 'true';
         return focusableClick && namesPublic && visible && !disabled;
-      }).sort((a,b) => {
-        const at = a.tabIndex >= 0 ? 0 : 1, bt = b.tabIndex >= 0 ? 0 : 1;
-        if (at !== bt) return at - bt;
-        const ad = a.querySelectorAll('*').length, bd = b.querySelectorAll('*').length;
-        if (ad !== bd) return ad - bd;
-        return c(a.textContent).length - c(b.textContent).length;
       });
 
       if (candidates.length !== 1) {
@@ -84,7 +78,7 @@ async function clickExactChapterPublic(page, ep) {
           ok:false,
           reason:`PUBLIC_CONTROL_COUNT_${candidates.length}`,
           rowText: rowText.slice(0,250),
-          candidates: candidates.map(el => ({ tag:el.tagName, text:c(el.textContent), aria:el.getAttribute('aria-label'), role:el.getAttribute('role'), tabIndex:el.tabIndex, cursor:getComputedStyle(el).cursor })).slice(0,20),
+          candidates: candidates.map(el => ({ tag:el.tagName, text:c(el.textContent), aria:el.getAttribute('aria-label'), role:el.getAttribute('role'), tabIndex:el.tabIndex })).slice(0,20),
           debug
         };
       }
@@ -99,9 +93,8 @@ async function clickExactChapterPublic(page, ep) {
   }, ep);
 }
 
-async function confirmIfNeeded(page) {
-  await sleep(900);
-  return page.evaluate(() => {
+async function clickDialogControl(page, exactNames) {
+  return page.evaluate(names => {
     const c = s => String(s || '').replace(/\s+/g, '');
     const dialogs = [...document.querySelectorAll('[role="dialog"]')].filter(d => {
       const r=d.getBoundingClientRect(), s=getComputedStyle(d);
@@ -110,21 +103,53 @@ async function confirmIfNeeded(page) {
     if (!dialogs.length) return { found:false };
     const d = dialogs[dialogs.length-1];
     const text = c(d.textContent);
-    if (!/공개|출간/.test(text)) return { found:true, text:text.slice(0,500), clicked:false };
     const candidates = [...d.querySelectorAll('*')].filter(el => {
       const t=c(el.textContent), a=c(el.getAttribute('aria-label')), role=c(el.getAttribute('role'));
       const s=getComputedStyle(el), r=el.getBoundingClientRect();
       const clickable=el.tagName==='BUTTON'||role==='button'||el.tabIndex>=0;
-      const name=['공개','확인','출간'].includes(t)||['공개','확인','출간'].includes(a);
+      const name=names.includes(t)||names.includes(a);
       return clickable&&name&&s.display!=='none'&&s.visibility!=='hidden'&&r.width>0&&r.height>0&&el.disabled!==true&&el.getAttribute('aria-disabled')!=='true';
-    }).sort((a,b)=>{
-      const at=a.tabIndex>=0?0:1,bt=b.tabIndex>=0?0:1;if(at!==bt)return at-bt;
-      return a.querySelectorAll('*').length-b.querySelectorAll('*').length;
     });
-    if (candidates.length!==1) return { found:true, text:text.slice(0,500), clicked:false, candidateCount:candidates.length, candidates:candidates.map(x=>({tag:x.tagName,text:c(x.textContent),aria:x.getAttribute('aria-label'),role:x.getAttribute('role'),tabIndex:x.tabIndex})).slice(0,20) };
-    const b=candidates[0]; b.click();
-    return { found:true, clicked:true, control:{tag:b.tagName,text:c(b.textContent),aria:b.getAttribute('aria-label'),role:b.getAttribute('role'),tabIndex:b.tabIndex} };
+    if (candidates.length!==1) {
+      return { found:true, text:text.slice(0,700), clicked:false, candidateCount:candidates.length, candidates:candidates.map(x=>({tag:x.tagName,text:c(x.textContent),aria:x.getAttribute('aria-label'),role:x.getAttribute('role'),tabIndex:x.tabIndex})).slice(0,20) };
+    }
+    const b=candidates[0];
+    const info={tag:b.tagName,text:c(b.textContent),aria:b.getAttribute('aria-label'),role:b.getAttribute('role'),tabIndex:b.tabIndex};
+    b.click();
+    return { found:true, clicked:true, control:info, text:text.slice(0,700) };
+  }, exactNames);
+}
+
+async function confirmIfNeeded(page) {
+  await sleep(900);
+  const stage1 = await page.evaluate(() => {
+    const c=s=>String(s||'').replace(/\s+/g,'');
+    const ds=[...document.querySelectorAll('[role="dialog"]')].filter(d=>{const r=d.getBoundingClientRect(),s=getComputedStyle(d);return s.display!=='none'&&s.visibility!=='hidden'&&r.width>0&&r.height>0});
+    if(!ds.length)return {found:false,text:''};
+    return {found:true,text:c(ds[ds.length-1].textContent).slice(0,700)};
   });
+
+  if (stage1.found && stage1.text.includes('공개시점을선택해주세요')) {
+    const now = await clickDialogControl(page, ['지금공개']);
+    if (!now.clicked) return { stage:'publish_time', state:now };
+    await sleep(1000);
+
+    const stage2 = await page.evaluate(() => {
+      const c=s=>String(s||'').replace(/\s+/g,'');
+      const ds=[...document.querySelectorAll('[role="dialog"]')].filter(d=>{const r=d.getBoundingClientRect(),s=getComputedStyle(d);return s.display!=='none'&&s.visibility!=='hidden'&&r.width>0&&r.height>0});
+      if(!ds.length)return {found:false,text:''};
+      return {found:true,text:c(ds[ds.length-1].textContent).slice(0,700)};
+    });
+    if (!stage2.found) return { stage:'publish_time', state:now, secondary:null };
+
+    const finalConfirm = await clickDialogControl(page, ['확인','공개','출간']);
+    return { stage:'publish_time', state:now, secondary:finalConfirm };
+  }
+
+  if (stage1.found && /공개|출간/.test(stage1.text)) {
+    return { stage:'generic', state:await clickDialogControl(page, ['확인','공개','출간']) };
+  }
+  return { stage:'none', state:stage1 };
 }
 
 (async () => {
