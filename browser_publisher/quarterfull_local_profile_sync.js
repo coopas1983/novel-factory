@@ -10,6 +10,7 @@ fs.mkdirSync(REPORT_DIR, { recursive: true });
 
 const norm = s => String(s || '').replace(/\s+/g, '');
 const sleep = ms => new Promise(r => setTimeout(r, ms));
+let lastLoadedPath = null;
 
 function loadEpisode(ep) {
   const base = path.resolve(__dirname, '..', 'books', 'live-gemini-pilot', 'commercial');
@@ -23,12 +24,24 @@ function loadEpisode(ep) {
   return body;
 }
 
+function trackLoadedFile(response) {
+  try {
+    const u = new URL(response.url());
+    if (!u.hostname.endsWith('quarterfull.io')) return;
+    if (!u.pathname.endsWith('/files/read')) return;
+    if (response.status() !== 200) return;
+    const p = u.searchParams.get('path');
+    if (p) lastLoadedPath = p;
+  } catch {}
+}
+
 async function ensureTarget(page) {
   let projectsStatus = null;
   const listener = r => {
     if (r.url() === 'https://api.quarterfull.io/api/v1/studio-cursor/projects') projectsStatus = r.status();
   };
   page.on('response', listener);
+  lastLoadedPath = null;
   await page.goto('https://quarterfull.io/studio-cursor', { waitUntil: 'domcontentloaded', timeout: 60000 });
   await sleep(5000);
   page.off('response', listener);
@@ -95,18 +108,42 @@ async function createMissingDoc(page, ep) {
   return node;
 }
 
+async function visibleEditor(page) {
+  const editors = page.locator('div.tiptap.ProseMirror[contenteditable="true"]');
+  for (let i = 0; i < await editors.count(); i++) {
+    const e = editors.nth(i);
+    if (await e.isVisible().catch(() => false)) return e;
+  }
+  return null;
+}
+
 async function activate(page, node, label) {
-  const editor = page.locator('div.tiptap.ProseMirror[contenteditable="true"]');
+  const desiredPath = `/project/원고/${label}.md`;
   for (let attempt = 1; attempt <= 4; attempt++) {
-    try { await node.click({ force: true }); } catch {}
-    try {
-      await editor.first().waitFor({ state: 'visible', timeout: 15000 });
-      return editor.first();
-    } catch {}
-    await sleep(1200);
+    if (lastLoadedPath !== desiredPath) {
+      try { await node.click({ force: true }); } catch {}
+    }
+
+    const end = Date.now() + 15000;
+    while (Date.now() < end && lastLoadedPath !== desiredPath) await sleep(250);
+
+    if (lastLoadedPath === desiredPath) {
+      const editorEnd = Date.now() + 10000;
+      while (Date.now() < editorEnd) {
+        const e = await visibleEditor(page);
+        if (e) {
+          await sleep(1000);
+          if (lastLoadedPath !== desiredPath) break;
+          return e;
+        }
+        await sleep(250);
+      }
+    }
+
+    await sleep(800);
     node = await chooseEpisode(page, label) || node;
   }
-  throw new Error(`EDITOR_NOT_FOUND:${label}`);
+  throw new Error(`EPISODE_LOAD_UNVERIFIED:${label}:${lastLoadedPath || 'NONE'}`);
 }
 
 async function replaceAll(editor, text) {
@@ -167,6 +204,7 @@ async function syncEpisode(page, ep) {
   await editor.press('Backspace');
   await sleep(6000);
   const finalText = (await editor.innerText()).trim();
+  if (lastLoadedPath !== `/project/원고/${label}.md`) throw new Error(`EPISODE_CHANGED_DURING_SAVE:${ep}`);
   if (norm(finalText) !== norm(body)) throw new Error(`FINAL_READBACK_MISMATCH:${ep}`);
   return { episode: ep, chars: body.length, status: 'DRAFT_SAVED_VERIFIED' };
 }
@@ -187,6 +225,7 @@ async function syncEpisode(page, ep) {
   try {
     const pages = ctx.pages();
     const page = pages[0] || await ctx.newPage();
+    page.on('response', trackLoadedFile);
     await ensureTarget(page);
 
     if (/\bverify\b/i.test(TRIGGER)) {
@@ -195,7 +234,7 @@ async function syncEpisode(page, ep) {
         await ensureTarget(page);
         episodes.push(await inspectEpisode(page, ep));
       }
-      const report = { platform: 'quarterfull', target: TARGET, auth: 'PASS', mode: 'VERIFY_ONLY', episodes };
+      const report = { platform: 'quarterfull', target: TARGET, auth: 'PASS', mode: 'VERIFY_ONLY_EXACT_LOAD', episodes };
       fs.writeFileSync(path.join(REPORT_DIR, 'quarterfull-local-verify.json'), JSON.stringify(report, null, 2));
       console.log('QF_LOCAL_AUTH_PASS');
       console.log(JSON.stringify(report));
