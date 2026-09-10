@@ -1,0 +1,35 @@
+name: QuarterFull Local Repair 2 9 10
+
+on:
+  push:
+    paths:
+      - 'browser_publisher/quarterfull-local-repair-trigger.txt'
+  workflow_dispatch:
+
+concurrency:
+  group: quarterfull-local-profile
+  cancel-in-progress: false
+
+jobs:
+  repair:
+    runs-on: [self-hosted, Windows, quarterfull]
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install publisher dependencies
+        working-directory: browser_publisher
+        shell: cmd
+        run: npm install
+      - name: Repair QuarterFull episodes 2 9 10
+        working-directory: browser_publisher
+        shell: cmd
+        run: node quarterfull_local_repair_2_9_10.js
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: quarterfull-local-repair-report
+          path: browser_publisher/reports/quarterfull-local-repair-2-9-10.json
+          retention-days: 7
