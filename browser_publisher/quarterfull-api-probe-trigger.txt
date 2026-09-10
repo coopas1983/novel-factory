@@ -1,1 +1,1 @@
-probe quarterfull api state run 3
+probe quarterfull api state run 4 - verify refreshed auth and episode 2/3 state
