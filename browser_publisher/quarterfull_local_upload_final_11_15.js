@@ -174,6 +174,8 @@ async function createEpisode(page, ep) {
   const node = await waitForNode(page, ep, 45000);
   if (!node) throw new Error(`EPISODE_CREATE_FAILED:${ep}`);
   await sleep(1800);
+  await ensureTarget(page);
+  await sleep(1500);
 }
 
 async function replaceEditor(page, editor, body) {
