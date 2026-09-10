@@ -1,0 +1,35 @@
+name: QuarterFull Local Verify V2
+
+on:
+  push:
+    paths:
+      - 'browser_publisher/quarterfull-local-verify-v2-trigger.txt'
+  workflow_dispatch:
+
+concurrency:
+  group: quarterfull-local-profile
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: [self-hosted, Windows, quarterfull]
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install publisher dependencies
+        working-directory: browser_publisher
+        shell: cmd
+        run: npm install
+      - name: Verify QuarterFull episodes exactly
+        working-directory: browser_publisher
+        shell: cmd
+        run: node quarterfull_local_verify_v2.js
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: quarterfull-local-verify-v2-report
+          path: browser_publisher/reports/quarterfull-local-verify-v2.json
+          retention-days: 7
