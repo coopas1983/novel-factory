@@ -1,0 +1,55 @@
+name: QuarterFull Auth Keepalive
+on:
+  schedule:
+    - cron: '17 3,15 * * *'
+  workflow_dispatch:
+concurrency:
+  group: quarterfull-auth-session
+  cancel-in-progress: false
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Restore encrypted QuarterFull auth cache
+        uses: actions/cache/restore@v4
+        with:
+          path: .qf-auth-cache
+          key: qf-auth-v2-${{ github.run_id }}
+          restore-keys: |
+            qf-auth-v2-
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Prepare QuarterFull auth state
+        working-directory: browser_publisher
+        env:
+          QUARTERFULL_STORAGE_STATE_B64: ${{ secrets.QUARTERFULL_STORAGE_STATE_B64 }}
+          QUARTERFULL_STORAGE_STATE_PATH: /tmp/quarterfull-storage.json
+          QF_AUTH_CACHE_FILE: ${{ github.workspace }}/.qf-auth-cache/state.enc
+        run: node qf_auth_cache.js prepare
+      - name: Install browser
+        working-directory: browser_publisher
+        run: |
+          npm install
+          npx playwright install --with-deps chromium
+      - name: Refresh and verify QuarterFull auth
+        working-directory: browser_publisher
+        env:
+          QUARTERFULL_STORAGE_STATE_B64: ${{ secrets.QUARTERFULL_STORAGE_STATE_B64 }}
+          QUARTERFULL_STORAGE_STATE_PATH: /tmp/quarterfull-storage.json
+        run: node quarterfull_auth_keepalive.js
+      - name: Seal rotated QuarterFull auth state
+        if: always()
+        working-directory: browser_publisher
+        env:
+          QUARTERFULL_STORAGE_STATE_B64: ${{ secrets.QUARTERFULL_STORAGE_STATE_B64 }}
+          QUARTERFULL_STORAGE_STATE_PATH: /tmp/quarterfull-storage.json
+          QF_AUTH_CACHE_FILE: ${{ github.workspace }}/.qf-auth-cache/state.enc
+        run: node qf_auth_cache.js seal
+      - name: Save encrypted QuarterFull auth cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: .qf-auth-cache
+          key: qf-auth-v2-${{ github.run_id }}
