@@ -1,0 +1,77 @@
+name: Final Arc Generate 13-15 V2
+
+on:
+  push:
+    paths:
+      - "browser_publisher/final-arc-batch-v2-trigger.txt"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: final-arc-generate-v2
+  cancel-in-progress: false
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      NOVEL_FACTORY_PROVIDER: gemini
+      GEMINI_MODEL: gemini-3.6-flash
+      GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Generate and freeze episodes 13 through 15 safely
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "novel-factory-bot"
+          git config user.email "actions@users.noreply.github.com"
+          for EP in 13 14 15; do
+            echo "=== FINAL ARC EPISODE $EP ==="
+            git pull --rebase origin main
+            if [ -f "books/live-gemini-pilot/commercial/chapter-${EP}.md" ] && [ -f "books/live-gemini-pilot/commercial/chapter-${EP}-quality.json" ]; then
+              python - "$EP" <<'PY'
+          import json,sys
+          from pathlib import Path
+          ep=int(sys.argv[1]); q=Path(f'books/live-gemini-pilot/commercial/chapter-{ep}-quality.json')
+          d=json.loads(q.read_text(encoding='utf-8'))
+          if d.get('gate')!='PASS' or d.get('lexical_preflight')!='PASS' or d.get('independent_reviewer')!='PASS' or d.get('continuity_reviewer')!='PASS' or d.get('issues'):
+              raise SystemExit(1)
+          print(f'EPISODE_{ep}_ALREADY_FROZEN_PASS')
+          PY
+              if [ $? -eq 0 ]; then continue; fi
+            fi
+            EPISODE="$EP" python -m factory.final_arc_episode
+            python - "$EP" <<'PY'
+          import sys
+          from pathlib import Path
+          ep=int(sys.argv[1]); p=Path(f'books/live-gemini-pilot/commercial/chapter-{ep}.md')
+          lines=p.read_text(encoding='utf-8').splitlines()
+          p.write_text('\n'.join(x.rstrip() for x in lines).strip()+'\n',encoding='utf-8')
+          PY
+            git add "books/live-gemini-pilot/commercial/chapter-${EP}.md" "books/live-gemini-pilot/commercial/chapter-${EP}-quality.json"
+            git diff --cached --check
+            git commit -m "Freeze final arc episode ${EP} PASS"
+            git pull --rebase origin main
+            git push origin main
+          done
+      - name: Upload final arc 13-15
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: final-arc-episodes-13-15-v2
+          path: |
+            books/live-gemini-pilot/commercial/chapter-13.md
+            books/live-gemini-pilot/commercial/chapter-13-quality.json
+            books/live-gemini-pilot/commercial/chapter-14.md
+            books/live-gemini-pilot/commercial/chapter-14-quality.json
+            books/live-gemini-pilot/commercial/chapter-15.md
+            books/live-gemini-pilot/commercial/chapter-15-quality.json
+          if-no-files-found: warn
