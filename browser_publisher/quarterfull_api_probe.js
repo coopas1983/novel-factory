@@ -1,35 +1,39 @@
 const {chromium}=require('playwright');
 const {loadState}=require('./auth');
 const fs=require('fs');
+const redact=s=>String(s||'').replace(/Bearer\s+[A-Za-z0-9._-]+/gi,'Bearer [REDACTED]').replace(/"(access_token|refresh_token|token|authorization|cookie)"\s*:\s*"[^"]*"/gi,'"$1":"[REDACTED]"');
 (async()=>{
+ const initial=loadState('quarterfull');
+ const initialKeys=[];
+ for(const o of (initial.origins||[])) for(const e of (o.localStorage||[])) if(/^cravi_(access|refresh)_token$/.test(e.name)) initialKeys.push(e.name);
  const browser=await chromium.launch({headless:true});
- const ctx=await browser.newContext({storageState:loadState('quarterfull')});
+ const ctx=await browser.newContext({storageState:initial});
  const page=await ctx.newPage();
- const seen=[]; const refreshRequests=[];
+ const seen=[]; const refreshRequests=[]; const bundleHints=[];
  page.on('request',req=>{
    const u=req.url();
    if(!/api\.quarterfull\.io\/api\/auth\/token\/refresh/.test(u)) return;
-   const headers=req.headers();
-   let postKeys=[];
-   try{const p=req.postDataJSON(); if(p&&typeof p==='object') postKeys=Object.keys(p);}catch{}
-   refreshRequests.push({url:u,method:req.method(),headerNames:Object.keys(headers).sort(),postKeys});
+   let postKeys=[]; try{const p=req.postDataJSON(); if(p&&typeof p==='object') postKeys=Object.keys(p);}catch{}
+   refreshRequests.push({url:u,method:req.method(),headerNames:Object.keys(req.headers()).sort(),postKeys});
  });
  page.on('response',async r=>{
-   const u=r.url();
-   if(!/quarterfull\.io|api\./i.test(u)) return;
-   const ct=(r.headers()['content-type']||'');
-   if(!/json|text/.test(ct)) return;
-   if(!/(project|book|work|studio|manuscript|novel|chapter|file|user|profile|library|auth|refresh)/i.test(u)) return;
-   let body=''; try{body=(await r.text()).slice(0,12000);}catch{}
-   body=body.replace(/"(access_token|refresh_token|token|authorization|cookie)"\s*:\s*"[^"]*"/gi,'"$1":"[REDACTED]"');
-   seen.push({url:u,status:r.status(),contentType:ct,body});
+   const u=r.url(); const ct=(r.headers()['content-type']||'');
+   if(/quarterfull\.io\/_expo\/static\/js\/web\/(entry|__common)/.test(u)){
+     let text=''; try{text=await r.text();}catch{}
+     for(const needle of ['api/auth/token/refresh','cravi_refresh_token','cravi_access_token']){
+       const idx=text.indexOf(needle); if(idx>=0) bundleHints.push({url:u,needle,snippet:redact(text.slice(Math.max(0,idx-1800),Math.min(text.length,idx+3500)))});
+     }
+   }
+   if(!/quarterfull\.io|api\./i.test(u)||!/json|text/.test(ct)||!/(project|studio|auth|refresh)/i.test(u)) return;
+   let body=''; try{body=(await r.text()).slice(0,8000);}catch{}
+   seen.push({url:u,status:r.status(),contentType:ct,body:redact(body)});
  });
  await page.goto('https://quarterfull.io/studio-cursor',{waitUntil:'networkidle',timeout:60000}).catch(()=>{});
  await page.waitForTimeout(4000);
- const ls=await page.evaluate(()=>({local:Object.keys(localStorage),session:Object.keys(sessionStorage),body:(document.body.innerText||'').slice(0,12000),resources:performance.getEntriesByType('resource').map(x=>x.name).filter(x=>/quarterfull\.io/.test(x)).slice(0,300)}));
+ const after=await page.evaluate(()=>({local:Object.keys(localStorage),body:(document.body.innerText||'').slice(0,5000)}));
  fs.mkdirSync('reports',{recursive:true});
- fs.writeFileSync('reports/quarterfull-api-probe.json',JSON.stringify({url:page.url(),storageKeys:ls,seen,refreshRequests},null,2));
- console.log('QF_API_PROBE_OK responses='+seen.length+' refreshRequests='+refreshRequests.length);
- console.log(JSON.stringify({url:page.url(),storageKeys:{local:ls.local,session:ls.session},body:ls.body,refreshRequests,responses:seen.map(x=>({url:x.url,status:x.status,body:x.body.slice(0,2000)}))},null,2));
+ const report={initialTokenKeys:initialKeys.sort(),afterTokenKeys:after.local.filter(x=>/^cravi_(access|refresh)_token$/.test(x)).sort(),refreshRequests,seen,bundleHints};
+ fs.writeFileSync('reports/quarterfull-api-probe.json',JSON.stringify(report,null,2));
+ console.log(JSON.stringify({initialTokenKeys:report.initialTokenKeys,afterTokenKeys:report.afterTokenKeys,refreshRequests,seen,bundleHints},null,2));
  await browser.close();
 })().catch(e=>{console.error(e);process.exit(1)});
