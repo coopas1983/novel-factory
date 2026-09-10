@@ -1,1 +1,1 @@
-episode 2 dom-scoped public control retry
+episode 2 focusable public control retry
