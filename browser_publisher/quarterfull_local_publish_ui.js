@@ -43,39 +43,35 @@ async function targetManageCard(page) {
 async function chapterRow(page, ep) {
   const label = `${ep}화`;
   const nodes = page.getByText(label, { exact: true });
-  let best = null, bestLen = Infinity;
   for (let i=0; i<await nodes.count(); i++) {
     const n = nodes.nth(i);
     if (!(await n.isVisible().catch(() => false))) continue;
-    let p = n;
-    for (let k=0; k<9; k++) {
-      p = p.locator('xpath=..');
-      if (!(await p.count())) break;
-      const text = (await p.innerText().catch(() => '')).replace(/\s+/g, ' ').trim();
-      if (!text.includes(label) || !text.includes('비공개')) continue;
-      const btns = p.locator('button');
-      let has = false;
-      for (let j=0; j<await btns.count(); j++) {
-        const b = btns.nth(j);
-        const t = (await b.innerText().catch(() => '')).trim();
-        const a = await b.getAttribute('aria-label');
-        if ((t === '공개' || a === '공개') && await b.isVisible().catch(() => false) && !(await b.isDisabled().catch(() => true))) { has = true; break; }
-      }
-      if (has && text.length < bestLen) { best = p; bestLen = text.length; }
-    }
+
+    const statusLine = n.locator('xpath=..');
+    if (!(await statusLine.count())) continue;
+    const statusText = (await statusLine.innerText().catch(() => '')).replace(/\s+/g, ' ').trim();
+    if (statusText !== `${label}비공개`) continue;
+
+    const row = statusLine.locator('xpath=..');
+    if (!(await row.count())) continue;
+    const rowText = (await row.innerText().catch(() => '')).replace(/\s+/g, ' ').trim();
+    if (!rowText.startsWith(`${label}비공개`) || !rowText.includes('소제목 저장') || !rowText.includes('공개') || rowText.length > 250) continue;
+
+    const pubs = row.locator('button[aria-label="공개"]');
+    if (await pubs.count() !== 1) continue;
+    const pub = pubs.first();
+    if (!(await pub.isVisible().catch(() => false)) || await pub.isDisabled().catch(() => true)) continue;
+    return row;
   }
-  return best;
+  return null;
 }
 
 async function publicButton(row) {
-  const btns = row.locator('button');
-  for (let j=0; j<await btns.count(); j++) {
-    const b = btns.nth(j);
-    const t = (await b.innerText().catch(() => '')).trim();
-    const a = await b.getAttribute('aria-label');
-    if ((t === '공개' || a === '공개') && await b.isVisible().catch(() => false) && !(await b.isDisabled().catch(() => true))) return b;
-  }
-  return null;
+  const pubs = row.locator('button[aria-label="공개"]');
+  if (await pubs.count() !== 1) return null;
+  const b = pubs.first();
+  if (!(await b.isVisible().catch(() => false)) || await b.isDisabled().catch(() => true)) return null;
+  return b;
 }
 
 async function confirmIfNeeded(page) {
@@ -133,7 +129,9 @@ async function confirmIfNeeded(page) {
       const row = await chapterRow(page, ep);
       if (!row) throw new Error(`EXACT_PUBLIC_ROW_NOT_FOUND:${ep}`);
       const rowText = (await row.innerText()).replace(/\s+/g, ' ').trim();
-      if (!rowText.includes(`${ep}화`) || !rowText.includes('비공개') || rowText.length > 800) throw new Error(`ROW_SAFETY_FAIL:${ep}:${rowText.slice(0,200)}`);
+      if (!rowText.startsWith(`${ep}화비공개`) || !rowText.includes('소제목 저장') || !rowText.includes('공개') || rowText.length > 250) {
+        throw new Error(`ROW_SAFETY_FAIL:${ep}:${rowText.slice(0,200)}`);
+      }
       const pub = await publicButton(row);
       if (!pub) throw new Error(`PUBLIC_BUTTON_MISSING:${ep}`);
       await pub.click();
@@ -146,7 +144,11 @@ async function confirmIfNeeded(page) {
         const c = s.find(x => x.title === `${ep}화`);
         if (c?.is_published) { confirmed = c; break; }
       }
-      if (!confirmed) throw new Error(`UI_PUBLISH_NOT_CONFIRMED:${ep}`);
+      if (!confirmed) {
+        const body = (await page.locator('body').innerText().catch(() => '')).replace(/\s+/g, ' ').slice(-3000);
+        console.log('QF_UI_PUBLISH_DEBUG', JSON.stringify({ ep, body, requests: requests.slice(-30) }));
+        throw new Error(`UI_PUBLISH_NOT_CONFIRMED:${ep}`);
+      }
       results.push({ episode:ep, status:'PUBLISHED_CONFIRMED', published_at:confirmed.published_at || null });
       await sleep(700);
     }
