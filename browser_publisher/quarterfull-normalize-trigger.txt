@@ -1,0 +1,1 @@
+normalize target chapter paths 5-10 and register missing
