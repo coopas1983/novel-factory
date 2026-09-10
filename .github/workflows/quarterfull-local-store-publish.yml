@@ -1,0 +1,35 @@
+name: QuarterFull Local Store Publish
+
+on:
+  push:
+    paths:
+      - 'browser_publisher/quarterfull-local-store-publish-trigger.txt'
+  workflow_dispatch:
+
+concurrency:
+  group: quarterfull-local-profile
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: [self-hosted, Windows, quarterfull]
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install publisher dependencies
+        working-directory: browser_publisher
+        shell: cmd
+        run: npm install
+      - name: Apply QuarterFull drafts to store
+        working-directory: browser_publisher
+        shell: cmd
+        run: node quarterfull_local_publish_store.js
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: quarterfull-local-store-publish-report
+          path: browser_publisher/reports/quarterfull-local-store-publish.json
+          retention-days: 7
