@@ -1,0 +1,1 @@
+diagnose store button state after 2-10 matched
