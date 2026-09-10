@@ -1,14 +1,14 @@
 {
   "episode": 13,
-  "chars_with_spaces": 5610,
-  "chars_without_whitespace": 4298,
+  "chars_with_spaces": 4972,
+  "chars_without_whitespace": 3753,
   "target_chars_without_whitespace": [
     3700,
     4200
   ],
-  "generation_passes": 3,
-  "expansion_passes": 0,
-  "contraction_passes": 2,
+  "generation_passes": 5,
+  "expansion_passes": 4,
+  "contraction_passes": 0,
   "repair_passes": 0,
   "lexical_preflight_final": [],
   "final_review_issues": [],
