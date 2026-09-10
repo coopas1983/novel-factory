@@ -7,6 +7,7 @@ const PROFILE = path.join(process.env.LOCALAPPDATA || '', 'NovelFactory', 'Quart
 const WORK_ID = '0a091e56-ff71-4f3f-862b-fde86b61adb3';
 const TRIGGER = fs.readFileSync(path.join(__dirname, 'quarterfull-local-publish-trigger.txt'), 'utf8').trim();
 const sleep = ms => new Promise(r => setTimeout(r, ms));
+const compact = s => String(s || '').replace(/\s+/g, '');
 
 function parseEpisodes(s) {
   let m = s.match(/episodes?\s+(\d+)\s*-\s*(\d+)/i);
@@ -49,13 +50,13 @@ async function chapterRow(page, ep) {
 
     const statusLine = n.locator('xpath=..');
     if (!(await statusLine.count())) continue;
-    const statusText = (await statusLine.innerText().catch(() => '')).replace(/\s+/g, ' ').trim();
+    const statusText = compact(await statusLine.innerText().catch(() => ''));
     if (statusText !== `${label}비공개`) continue;
 
     const row = statusLine.locator('xpath=..');
     if (!(await row.count())) continue;
-    const rowText = (await row.innerText().catch(() => '')).replace(/\s+/g, ' ').trim();
-    if (!rowText.startsWith(`${label}비공개`) || !rowText.includes('소제목 저장') || !rowText.includes('공개') || rowText.length > 250) continue;
+    const rowText = compact(await row.innerText().catch(() => ''));
+    if (!rowText.startsWith(`${label}비공개`) || !rowText.includes('소제목저장') || !rowText.includes('공개') || rowText.length > 250) continue;
 
     const pubs = row.locator('button[aria-label="공개"]');
     if (await pubs.count() !== 1) continue;
@@ -79,13 +80,13 @@ async function confirmIfNeeded(page) {
   const dialogs = page.locator('[role="dialog"]:visible');
   if (!(await dialogs.count())) return;
   const d = dialogs.last();
-  const text = (await d.innerText().catch(() => '')).replace(/\s+/g, ' ').trim();
+  const text = compact(await d.innerText().catch(() => ''));
   if (!/공개|출간/.test(text)) return;
   const btns = d.locator('button');
   for (let j=0; j<await btns.count(); j++) {
     const b = btns.nth(j);
-    const t = (await b.innerText().catch(() => '')).trim();
-    const a = await b.getAttribute('aria-label');
+    const t = compact(await b.innerText().catch(() => ''));
+    const a = compact(await b.getAttribute('aria-label'));
     const isConfirm = ['공개','확인','출간'].includes(t) || ['공개','확인','출간'].includes(a);
     const enabled = await b.isVisible().catch(() => false) && !(await b.isDisabled().catch(() => true));
     if (isConfirm && enabled) { await b.click(); return; }
@@ -128,8 +129,8 @@ async function confirmIfNeeded(page) {
 
       const row = await chapterRow(page, ep);
       if (!row) throw new Error(`EXACT_PUBLIC_ROW_NOT_FOUND:${ep}`);
-      const rowText = (await row.innerText()).replace(/\s+/g, ' ').trim();
-      if (!rowText.startsWith(`${ep}화비공개`) || !rowText.includes('소제목 저장') || !rowText.includes('공개') || rowText.length > 250) {
+      const rowText = compact(await row.innerText());
+      if (!rowText.startsWith(`${ep}화비공개`) || !rowText.includes('소제목저장') || !rowText.includes('공개') || rowText.length > 250) {
         throw new Error(`ROW_SAFETY_FAIL:${ep}:${rowText.slice(0,200)}`);
       }
       const pub = await publicButton(row);
@@ -145,7 +146,7 @@ async function confirmIfNeeded(page) {
         if (c?.is_published) { confirmed = c; break; }
       }
       if (!confirmed) {
-        const body = (await page.locator('body').innerText().catch(() => '')).replace(/\s+/g, ' ').slice(-3000);
+        const body = compact(await page.locator('body').innerText().catch(() => '')).slice(-3000);
         console.log('QF_UI_PUBLISH_DEBUG', JSON.stringify({ ep, body, requests: requests.slice(-30) }));
         throw new Error(`UI_PUBLISH_NOT_CONFIRMED:${ep}`);
       }
