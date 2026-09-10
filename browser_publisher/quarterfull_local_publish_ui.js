@@ -41,56 +41,86 @@ async function targetManageCard(page) {
   return null;
 }
 
-async function chapterRow(page, ep) {
-  const label = `${ep}화`;
-  const nodes = page.getByText(label, { exact: true });
-  for (let i=0; i<await nodes.count(); i++) {
-    const n = nodes.nth(i);
-    if (!(await n.isVisible().catch(() => false))) continue;
+async function clickExactChapterPublic(page, ep) {
+  return page.evaluate(epNum => {
+    const c = s => String(s || '').replace(/\s+/g, '');
+    const label = `${epNum}화`;
+    const leaves = [...document.querySelectorAll('*')].filter(el => el.children.length === 0 && c(el.textContent) === label);
+    const debug = [];
 
-    const statusLine = n.locator('xpath=..');
-    if (!(await statusLine.count())) continue;
-    const statusText = compact(await statusLine.innerText().catch(() => ''));
-    if (statusText !== `${label}비공개`) continue;
+    for (const leaf of leaves) {
+      const status = leaf.parentElement;
+      if (!status) continue;
+      const statusText = c(status.textContent);
+      debug.push({ leafTag: leaf.tagName, statusTag: status.tagName, statusText: statusText.slice(0,120) });
+      if (statusText !== `${label}비공개`) continue;
 
-    const row = statusLine.locator('xpath=..');
-    if (!(await row.count())) continue;
-    const rowText = compact(await row.innerText().catch(() => ''));
-    if (!rowText.startsWith(`${label}비공개`) || !rowText.includes('소제목저장') || !rowText.includes('공개') || rowText.length > 250) continue;
+      const row = status.parentElement;
+      if (!row) continue;
+      const rowText = c(row.textContent);
+      if (!rowText.startsWith(`${label}비공개`) || !rowText.includes('소제목저장') || !rowText.includes('공개') || rowText.length > 250) continue;
 
-    const pubs = row.locator('button[aria-label="공개"]');
-    if (await pubs.count() !== 1) continue;
-    const pub = pubs.first();
-    if (!(await pub.isVisible().catch(() => false)) || await pub.isDisabled().catch(() => true)) continue;
-    return row;
-  }
-  return null;
-}
+      const all = [...row.querySelectorAll('*')];
+      const candidates = all.filter(el => {
+        const txt = c(el.textContent);
+        const aria = c(el.getAttribute('aria-label'));
+        const role = c(el.getAttribute('role'));
+        const style = getComputedStyle(el);
+        const clickable = el.tagName === 'BUTTON' || role === 'button' || el.tabIndex >= 0 || style.cursor === 'pointer';
+        const namesPublic = txt === '공개' || aria === '공개' || (txt.length <= 8 && txt.endsWith('공개'));
+        const visible = style.display !== 'none' && style.visibility !== 'hidden' && el.getBoundingClientRect().width > 0 && el.getBoundingClientRect().height > 0;
+        const disabled = el.disabled === true || el.getAttribute('aria-disabled') === 'true';
+        return clickable && namesPublic && visible && !disabled;
+      }).sort((a,b) => {
+        const ad = a.querySelectorAll('*').length, bd = b.querySelectorAll('*').length;
+        if (ad !== bd) return ad - bd;
+        return c(a.textContent).length - c(b.textContent).length;
+      });
 
-async function publicButton(row) {
-  const pubs = row.locator('button[aria-label="공개"]');
-  if (await pubs.count() !== 1) return null;
-  const b = pubs.first();
-  if (!(await b.isVisible().catch(() => false)) || await b.isDisabled().catch(() => true)) return null;
-  return b;
+      if (candidates.length !== 1) {
+        return {
+          ok:false,
+          reason:`PUBLIC_CONTROL_COUNT_${candidates.length}`,
+          rowText: rowText.slice(0,250),
+          candidates: candidates.map(el => ({ tag:el.tagName, text:c(el.textContent), aria:el.getAttribute('aria-label'), role:el.getAttribute('role'), tabIndex:el.tabIndex, cursor:getComputedStyle(el).cursor })).slice(0,20),
+          debug
+        };
+      }
+
+      const btn = candidates[0];
+      const info = { tag:btn.tagName, text:c(btn.textContent), aria:btn.getAttribute('aria-label'), role:btn.getAttribute('role'), rowText:rowText.slice(0,250) };
+      btn.click();
+      return { ok:true, clicked:info };
+    }
+
+    return { ok:false, reason:'EXACT_CHAPTER_CARD_NOT_FOUND', debug };
+  }, ep);
 }
 
 async function confirmIfNeeded(page) {
-  await sleep(700);
-  const dialogs = page.locator('[role="dialog"]:visible');
-  if (!(await dialogs.count())) return;
-  const d = dialogs.last();
-  const text = compact(await d.innerText().catch(() => ''));
-  if (!/공개|출간/.test(text)) return;
-  const btns = d.locator('button');
-  for (let j=0; j<await btns.count(); j++) {
-    const b = btns.nth(j);
-    const t = compact(await b.innerText().catch(() => ''));
-    const a = compact(await b.getAttribute('aria-label'));
-    const isConfirm = ['공개','확인','출간'].includes(t) || ['공개','확인','출간'].includes(a);
-    const enabled = await b.isVisible().catch(() => false) && !(await b.isDisabled().catch(() => true));
-    if (isConfirm && enabled) { await b.click(); return; }
-  }
+  await sleep(900);
+  const clicked = await page.evaluate(() => {
+    const c = s => String(s || '').replace(/\s+/g, '');
+    const dialogs = [...document.querySelectorAll('[role="dialog"]')].filter(d => {
+      const r=d.getBoundingClientRect(), s=getComputedStyle(d);
+      return s.display!=='none' && s.visibility!=='hidden' && r.width>0 && r.height>0;
+    });
+    if (!dialogs.length) return { found:false };
+    const d = dialogs[dialogs.length-1];
+    const text = c(d.textContent);
+    if (!/공개|출간/.test(text)) return { found:true, text:text.slice(0,500), clicked:false };
+    const candidates = [...d.querySelectorAll('*')].filter(el => {
+      const t=c(el.textContent), a=c(el.getAttribute('aria-label')), role=c(el.getAttribute('role'));
+      const s=getComputedStyle(el), r=el.getBoundingClientRect();
+      const clickable=el.tagName==='BUTTON'||role==='button'||el.tabIndex>=0||s.cursor==='pointer';
+      const name=['공개','확인','출간'].includes(t)||['공개','확인','출간'].includes(a);
+      return clickable&&name&&s.display!=='none'&&s.visibility!=='hidden'&&r.width>0&&r.height>0&&el.disabled!==true&&el.getAttribute('aria-disabled')!=='true';
+    }).sort((a,b)=>a.querySelectorAll('*').length-b.querySelectorAll('*').length);
+    if (candidates.length!==1) return { found:true, text:text.slice(0,500), clicked:false, candidateCount:candidates.length, candidates:candidates.map(x=>({tag:x.tagName,text:c(x.textContent),aria:x.getAttribute('aria-label'),role:x.getAttribute('role')})).slice(0,20) };
+    const b=candidates[0]; b.click();
+    return { found:true, clicked:true, control:{tag:b.tagName,text:c(b.textContent),aria:b.getAttribute('aria-label'),role:b.getAttribute('role')} };
+  });
+  return clicked;
 }
 
 (async () => {
@@ -105,6 +135,7 @@ async function confirmIfNeeded(page) {
         requests.push({ method:r.method(), url:r.url(), postData:r.postData() });
       }
     });
+    await page.setViewportSize({width:1440,height:1200});
     await page.goto('https://quarterfull.io/studio-cursor', { waitUntil:'domcontentloaded', timeout:60000 });
     await sleep(6000);
     if (!(await page.locator('body').innerText()).includes(TARGET)) throw new Error('TARGET_NOT_VISIBLE');
@@ -127,27 +158,22 @@ async function confirmIfNeeded(page) {
       if (!prev?.is_published) throw new Error(`PREVIOUS_NOT_PUBLIC:${ep-1}`);
       if (cur.is_published) { results.push({ episode:ep, status:'ALREADY_PUBLISHED' }); continue; }
 
-      const row = await chapterRow(page, ep);
-      if (!row) throw new Error(`EXACT_PUBLIC_ROW_NOT_FOUND:${ep}`);
-      const rowText = compact(await row.innerText());
-      if (!rowText.startsWith(`${ep}화비공개`) || !rowText.includes('소제목저장') || !rowText.includes('공개') || rowText.length > 250) {
-        throw new Error(`ROW_SAFETY_FAIL:${ep}:${rowText.slice(0,200)}`);
-      }
-      const pub = await publicButton(row);
-      if (!pub) throw new Error(`PUBLIC_BUTTON_MISSING:${ep}`);
-      await pub.click();
-      await confirmIfNeeded(page);
+      const click = await clickExactChapterPublic(page, ep);
+      console.log('QF_EXACT_CARD_CLICK', JSON.stringify({ep, click}));
+      if (!click.ok) throw new Error(`${click.reason}:${ep}`);
+      const confirm = await confirmIfNeeded(page);
+      console.log('QF_CONFIRM_STATE', JSON.stringify({ep, confirm}));
 
       let confirmed = null;
-      for (let k=0; k<18; k++) {
+      for (let k=0; k<22; k++) {
         await sleep(700);
         s = await getSummaries(page);
         const c = s.find(x => x.title === `${ep}화`);
         if (c?.is_published) { confirmed = c; break; }
       }
       if (!confirmed) {
-        const body = compact(await page.locator('body').innerText().catch(() => '')).slice(-3000);
-        console.log('QF_UI_PUBLISH_DEBUG', JSON.stringify({ ep, body, requests: requests.slice(-30) }));
+        const body = compact(await page.locator('body').innerText().catch(() => '')).slice(-4000);
+        console.log('QF_UI_PUBLISH_DEBUG', JSON.stringify({ ep, body, requests: requests.slice(-40) }));
         throw new Error(`UI_PUBLISH_NOT_CONFIRMED:${ep}`);
       }
       results.push({ episode:ep, status:'PUBLISHED_CONFIRMED', published_at:confirmed.published_at || null });
@@ -161,7 +187,7 @@ async function confirmIfNeeded(page) {
       publicCount: final.filter(x => x.is_published).length,
       total: final.length,
       chapters: final.map(x => ({ title:x.title, is_published:x.is_published, published_at:x.published_at || null })),
-      requests: requests.slice(-30)
+      requests: requests.slice(-40)
     }));
   } finally { await ctx.close(); }
 })().catch(e => { console.error(e); process.exit(1); });
