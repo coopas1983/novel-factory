@@ -1,0 +1,29 @@
+name: QuarterFull Local Normalize Chapters
+
+on:
+  push:
+    paths:
+      - 'browser_publisher/quarterfull-normalize-trigger.txt'
+  workflow_dispatch:
+
+concurrency:
+  group: quarterfull-local-profile
+  cancel-in-progress: false
+
+jobs:
+  normalize:
+    runs-on: [self-hosted, Windows, quarterfull]
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install publisher dependencies
+        working-directory: browser_publisher
+        shell: cmd
+        run: npm install
+      - name: Normalize QuarterFull chapter files safely
+        working-directory: browser_publisher
+        shell: cmd
+        run: node quarterfull_local_normalize_chapters.js
