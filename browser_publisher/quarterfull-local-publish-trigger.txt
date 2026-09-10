@@ -1,1 +1,1 @@
-episode 2 exact chapter card retry
+episode 2 whitespace-safe exact card retry
