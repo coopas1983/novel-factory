@@ -3,6 +3,9 @@ on:
   push:
     paths:
       - 'browser_publisher/quarterfull-api-probe-trigger.txt'
+concurrency:
+  group: quarterfull-auth-session
+  cancel-in-progress: false
 jobs:
   probe:
     runs-on: ubuntu-latest
