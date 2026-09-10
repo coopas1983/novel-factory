@@ -1,0 +1,55 @@
+name: Final Arc Generate
+
+on:
+  push:
+    paths:
+      - "browser_publisher/final-arc-trigger.txt"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: final-arc-generate
+  cancel-in-progress: false
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      NOVEL_FACTORY_PROVIDER: gemini
+      GEMINI_MODEL: gemini-3.6-flash
+      GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Resolve final arc episode
+        shell: bash
+        run: |
+          EP=$(grep -oE '1[1-5]' browser_publisher/final-arc-trigger.txt | head -1)
+          test -n "$EP"
+          echo "EPISODE=$EP" >> "$GITHUB_ENV"
+      - name: Generate and review final arc episode
+        run: python -m factory.final_arc_episode
+      - name: Commit frozen PASS episode
+        shell: bash
+        run: |
+          git add "books/live-gemini-pilot/commercial/chapter-${EPISODE}.md" "books/live-gemini-pilot/commercial/chapter-${EPISODE}-quality.json"
+          git diff --cached --check
+          git config user.name "novel-factory-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git commit -m "Freeze final arc episode ${EPISODE} PASS"
+          git push
+      - name: Upload final arc artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: final-arc-episode-${{ env.EPISODE }}
+          path: |
+            books/live-gemini-pilot/commercial/chapter-${{ env.EPISODE }}.md
+            books/live-gemini-pilot/commercial/chapter-${{ env.EPISODE }}-quality.json
+          if-no-files-found: warn
