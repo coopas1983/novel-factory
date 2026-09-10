@@ -20,8 +20,13 @@ const redact=s=>String(s||'').replace(/Bearer\s+[A-Za-z0-9._-]+/gi,'Bearer [REDA
    const u=r.url(); const ct=(r.headers()['content-type']||'');
    if(/quarterfull\.io\/_expo\/static\/js\/web\/(entry|__common)/.test(u)){
      let text=''; try{text=await r.text();}catch{}
-     for(const needle of ['api/auth/token/refresh','cravi_refresh_token','cravi_access_token']){
-       const idx=text.indexOf(needle); if(idx>=0) bundleHints.push({url:u,needle,snippet:redact(text.slice(Math.max(0,idx-1800),Math.min(text.length,idx+3500)))});
+     for(const needle of ['interceptors.response.use','refreshToken=async','cravi_refresh_token','localStorage.setItem']){
+       let from=0, count=0;
+       while(count<3){
+         const idx=text.indexOf(needle,from); if(idx<0) break;
+         bundleHints.push({url:u,needle,snippet:redact(text.slice(Math.max(0,idx-5000),Math.min(text.length,idx+9000)))});
+         from=idx+needle.length; count++;
+       }
      }
    }
    if(!/quarterfull\.io|api\./i.test(u)||!/json|text/.test(ct)||!/(project|studio|auth|refresh)/i.test(u)) return;
@@ -34,6 +39,7 @@ const redact=s=>String(s||'').replace(/Bearer\s+[A-Za-z0-9._-]+/gi,'Bearer [REDA
  fs.mkdirSync('reports',{recursive:true});
  const report={initialTokenKeys:initialKeys.sort(),afterTokenKeys:after.local.filter(x=>/^cravi_(access|refresh)_token$/.test(x)).sort(),refreshRequests,seen,bundleHints};
  fs.writeFileSync('reports/quarterfull-api-probe.json',JSON.stringify(report,null,2));
- console.log(JSON.stringify({initialTokenKeys:report.initialTokenKeys,afterTokenKeys:report.afterTokenKeys,refreshRequests,seen,bundleHints},null,2));
+ console.log('QF_REFRESH_PERSISTENCE_PROBE_OK');
+ for(const h of bundleHints) console.log('\n=== '+h.needle+' ===\n'+h.snippet.slice(0,14000));
  await browser.close();
 })().catch(e=>{console.error(e);process.exit(1)});
