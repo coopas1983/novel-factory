@@ -1,21 +1,22 @@
-name: Final Arc Generate 12-15
+name: Final Arc Recover 13 and Generate 14-15
 
 on:
   push:
     paths:
-      - "browser_publisher/final-arc-batch-12-15.txt"
+      - "browser_publisher/final-arc-recover-13-15.txt"
 
 permissions:
   contents: write
+  actions: read
 
 concurrency:
-  group: final-arc-generate-rest
+  group: final-arc-finish
   cancel-in-progress: false
 
 jobs:
-  generate:
+  finish:
     runs-on: ubuntu-latest
-    timeout-minutes: 80
+    timeout-minutes: 120
     env:
       NOVEL_FACTORY_PROVIDER: gemini
       GEMINI_MODEL: gemini-3.6-flash
@@ -24,44 +25,88 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Generate freeze episodes 12 to 15 sequentially
+
+      - name: Recover already PASS episode 13
+        uses: actions/download-artifact@v4
+        with:
+          name: final-arc-episodes-12-15
+          path: recovered
+          github-token: ${{ github.token }}
+          run-id: 34488160324
+
+      - name: Validate recovered episode 13
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, shutil, re
+          from pathlib import Path
+          src=Path('recovered')
+          body=src/'chapter-13.md'
+          quality=src/'chapter-13-quality.json'
+          if not body.exists() or not quality.exists(): raise SystemExit('RECOVERED_EP13_MISSING')
+          q=json.loads(quality.read_text(encoding='utf-8'))
+          if q.get('gate')!='PASS' or q.get('lexical_preflight')!='PASS' or q.get('independent_reviewer')!='PASS' or q.get('continuity_reviewer')!='PASS' or q.get('issues'):
+              raise SystemExit('RECOVERED_EP13_NOT_PASS')
+          text=body.read_text(encoding='utf-8')
+          cleaned='\n'.join(line.rstrip() for line in text.splitlines()).strip()+'\n'
+          vc=len(re.sub(r'\s+','',cleaned))
+          if vc != q.get('chars_without_whitespace'): raise SystemExit(f'EP13_COUNT_MISMATCH:{vc}:{q.get("chars_without_whitespace")}')
+          out=Path('books/live-gemini-pilot/commercial')
+          (out/'chapter-13.md').write_text(cleaned,encoding='utf-8')
+          q['chars_with_spaces']=len(cleaned.rstrip('\n'))
+          (out/'chapter-13-quality.json').write_text(json.dumps(q,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+          print('RECOVERED_EP13_PASS',vc)
+          PY
+
+      - name: Generate and validate episodes 14 and 15
+        shell: bash
+        run: |
+          set -euo pipefail
+          for EP in 14 15; do
+            echo "=== FINAL ARC EPISODE $EP ==="
+            EPISODE="$EP" python -m factory.final_arc_episode
+            python - "$EP" <<'PY'
+          import sys, json, re
+          from pathlib import Path
+          ep=sys.argv[1]
+          p=Path(f"books/live-gemini-pilot/commercial/chapter-{ep}.md")
+          text=p.read_text(encoding='utf-8')
+          cleaned='\n'.join(line.rstrip() for line in text.splitlines()).strip()+'\n'
+          p.write_text(cleaned,encoding='utf-8')
+          qpath=Path(f"books/live-gemini-pilot/commercial/chapter-{ep}-quality.json")
+          q=json.loads(qpath.read_text(encoding='utf-8'))
+          q['chars_with_spaces']=len(cleaned.rstrip('\n'))
+          vc=len(re.sub(r'\s+','',cleaned))
+          if vc != q.get('chars_without_whitespace'): raise SystemExit(f'COUNT_MISMATCH:{ep}:{vc}:{q.get("chars_without_whitespace")}')
+          if q.get('gate')!='PASS' or q.get('lexical_preflight')!='PASS' or q.get('independent_reviewer')!='PASS' or q.get('continuity_reviewer')!='PASS' or q.get('issues'):
+              raise SystemExit(f'QUALITY_BLOCK:{ep}')
+          qpath.write_text(json.dumps(q,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+          print('FINAL_EP_PASS',ep,vc)
+          PY
+          done
+
+      - name: Freeze episodes 13-15 in one commit
         shell: bash
         run: |
           set -euo pipefail
           git config user.name "novel-factory-bot"
           git config user.email "actions@users.noreply.github.com"
-          for EP in 12 13 14 15; do
-            echo "=== FINAL ARC EPISODE $EP ==="
-            EPISODE="$EP" python -m factory.final_arc_episode
-            python - "$EP" <<'PY'
-          import sys, json
-          from pathlib import Path
-          ep=sys.argv[1]
-          p=Path(f"books/live-gemini-pilot/commercial/chapter-{ep}.md")
-          text=p.read_text(encoding="utf-8")
-          cleaned="\n".join(line.rstrip() for line in text.splitlines()).strip()+"\n"
-          p.write_text(cleaned,encoding="utf-8")
-          q=Path(f"books/live-gemini-pilot/commercial/chapter-{ep}-quality.json")
-          data=json.loads(q.read_text(encoding="utf-8"))
-          data["chars_with_spaces"]=len(cleaned.rstrip("\n"))
-          q.write_text(json.dumps(data,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
-          PY
-            git add "books/live-gemini-pilot/commercial/chapter-${EP}.md" "books/live-gemini-pilot/commercial/chapter-${EP}-quality.json"
-            git diff --cached --check
-            git commit -m "Freeze final arc episode ${EP} PASS"
-            git push
-          done
-      - name: Upload final arc 12-15
+          git add books/live-gemini-pilot/commercial/chapter-13.md books/live-gemini-pilot/commercial/chapter-13-quality.json books/live-gemini-pilot/commercial/chapter-14.md books/live-gemini-pilot/commercial/chapter-14-quality.json books/live-gemini-pilot/commercial/chapter-15.md books/live-gemini-pilot/commercial/chapter-15-quality.json
+          git diff --cached --check
+          git commit -m "Freeze final arc episodes 13-15 PASS"
+          git push
+
+      - name: Upload final arc 13-15
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: final-arc-episodes-12-15
+          name: final-arc-finished-13-15
           path: |
-            books/live-gemini-pilot/commercial/chapter-12.md
-            books/live-gemini-pilot/commercial/chapter-12-quality.json
             books/live-gemini-pilot/commercial/chapter-13.md
             books/live-gemini-pilot/commercial/chapter-13-quality.json
             books/live-gemini-pilot/commercial/chapter-14.md
