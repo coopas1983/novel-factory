@@ -66,12 +66,14 @@ async function clickExactChapterPublic(page, ep) {
         const aria = c(el.getAttribute('aria-label'));
         const role = c(el.getAttribute('role'));
         const style = getComputedStyle(el);
-        const clickable = el.tagName === 'BUTTON' || role === 'button' || el.tabIndex >= 0 || style.cursor === 'pointer';
+        const focusableClick = el.tagName === 'BUTTON' || role === 'button' || el.tabIndex >= 0;
         const namesPublic = txt === '공개' || aria === '공개' || (txt.length <= 8 && txt.endsWith('공개'));
         const visible = style.display !== 'none' && style.visibility !== 'hidden' && el.getBoundingClientRect().width > 0 && el.getBoundingClientRect().height > 0;
         const disabled = el.disabled === true || el.getAttribute('aria-disabled') === 'true';
-        return clickable && namesPublic && visible && !disabled;
+        return focusableClick && namesPublic && visible && !disabled;
       }).sort((a,b) => {
+        const at = a.tabIndex >= 0 ? 0 : 1, bt = b.tabIndex >= 0 ? 0 : 1;
+        if (at !== bt) return at - bt;
         const ad = a.querySelectorAll('*').length, bd = b.querySelectorAll('*').length;
         if (ad !== bd) return ad - bd;
         return c(a.textContent).length - c(b.textContent).length;
@@ -88,7 +90,7 @@ async function clickExactChapterPublic(page, ep) {
       }
 
       const btn = candidates[0];
-      const info = { tag:btn.tagName, text:c(btn.textContent), aria:btn.getAttribute('aria-label'), role:btn.getAttribute('role'), rowText:rowText.slice(0,250) };
+      const info = { tag:btn.tagName, text:c(btn.textContent), aria:btn.getAttribute('aria-label'), role:btn.getAttribute('role'), tabIndex:btn.tabIndex, rowText:rowText.slice(0,250) };
       btn.click();
       return { ok:true, clicked:info };
     }
@@ -99,7 +101,7 @@ async function clickExactChapterPublic(page, ep) {
 
 async function confirmIfNeeded(page) {
   await sleep(900);
-  const clicked = await page.evaluate(() => {
+  return page.evaluate(() => {
     const c = s => String(s || '').replace(/\s+/g, '');
     const dialogs = [...document.querySelectorAll('[role="dialog"]')].filter(d => {
       const r=d.getBoundingClientRect(), s=getComputedStyle(d);
@@ -112,15 +114,17 @@ async function confirmIfNeeded(page) {
     const candidates = [...d.querySelectorAll('*')].filter(el => {
       const t=c(el.textContent), a=c(el.getAttribute('aria-label')), role=c(el.getAttribute('role'));
       const s=getComputedStyle(el), r=el.getBoundingClientRect();
-      const clickable=el.tagName==='BUTTON'||role==='button'||el.tabIndex>=0||s.cursor==='pointer';
+      const clickable=el.tagName==='BUTTON'||role==='button'||el.tabIndex>=0;
       const name=['공개','확인','출간'].includes(t)||['공개','확인','출간'].includes(a);
       return clickable&&name&&s.display!=='none'&&s.visibility!=='hidden'&&r.width>0&&r.height>0&&el.disabled!==true&&el.getAttribute('aria-disabled')!=='true';
-    }).sort((a,b)=>a.querySelectorAll('*').length-b.querySelectorAll('*').length);
-    if (candidates.length!==1) return { found:true, text:text.slice(0,500), clicked:false, candidateCount:candidates.length, candidates:candidates.map(x=>({tag:x.tagName,text:c(x.textContent),aria:x.getAttribute('aria-label'),role:x.getAttribute('role')})).slice(0,20) };
+    }).sort((a,b)=>{
+      const at=a.tabIndex>=0?0:1,bt=b.tabIndex>=0?0:1;if(at!==bt)return at-bt;
+      return a.querySelectorAll('*').length-b.querySelectorAll('*').length;
+    });
+    if (candidates.length!==1) return { found:true, text:text.slice(0,500), clicked:false, candidateCount:candidates.length, candidates:candidates.map(x=>({tag:x.tagName,text:c(x.textContent),aria:x.getAttribute('aria-label'),role:x.getAttribute('role'),tabIndex:x.tabIndex})).slice(0,20) };
     const b=candidates[0]; b.click();
-    return { found:true, clicked:true, control:{tag:b.tagName,text:c(b.textContent),aria:b.getAttribute('aria-label'),role:b.getAttribute('role')} };
+    return { found:true, clicked:true, control:{tag:b.tagName,text:c(b.textContent),aria:b.getAttribute('aria-label'),role:b.getAttribute('role'),tabIndex:b.tabIndex} };
   });
-  return clicked;
 }
 
 (async () => {
