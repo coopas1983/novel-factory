@@ -1,9 +1,9 @@
-name: Final Arc Generate 13-15
+name: Final Arc Generate 12-15
 
 on:
   push:
     paths:
-      - "browser_publisher/final-arc-batch-13-15.txt"
+      - "browser_publisher/final-arc-batch-12-15.txt"
 
 permissions:
   contents: write
@@ -15,7 +15,7 @@ concurrency:
 jobs:
   generate:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 80
     env:
       NOVEL_FACTORY_PROVIDER: gemini
       GEMINI_MODEL: gemini-3.6-flash
@@ -27,26 +27,41 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Generate freeze episodes 13 to 15 sequentially
+      - name: Generate freeze episodes 12 to 15 sequentially
         shell: bash
         run: |
           set -euo pipefail
           git config user.name "novel-factory-bot"
           git config user.email "actions@users.noreply.github.com"
-          for EP in 13 14 15; do
+          for EP in 12 13 14 15; do
             echo "=== FINAL ARC EPISODE $EP ==="
             EPISODE="$EP" python -m factory.final_arc_episode
+            python - "$EP" <<'PY'
+          import sys, json
+          from pathlib import Path
+          ep=sys.argv[1]
+          p=Path(f"books/live-gemini-pilot/commercial/chapter-{ep}.md")
+          text=p.read_text(encoding="utf-8")
+          cleaned="\n".join(line.rstrip() for line in text.splitlines()).strip()+"\n"
+          p.write_text(cleaned,encoding="utf-8")
+          q=Path(f"books/live-gemini-pilot/commercial/chapter-{ep}-quality.json")
+          data=json.loads(q.read_text(encoding="utf-8"))
+          data["chars_with_spaces"]=len(cleaned.rstrip("\n"))
+          q.write_text(json.dumps(data,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
+          PY
             git add "books/live-gemini-pilot/commercial/chapter-${EP}.md" "books/live-gemini-pilot/commercial/chapter-${EP}-quality.json"
             git diff --cached --check
             git commit -m "Freeze final arc episode ${EP} PASS"
             git push
           done
-      - name: Upload final arc 13-15
+      - name: Upload final arc 12-15
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: final-arc-episodes-13-15
+          name: final-arc-episodes-12-15
           path: |
+            books/live-gemini-pilot/commercial/chapter-12.md
+            books/live-gemini-pilot/commercial/chapter-12-quality.json
             books/live-gemini-pilot/commercial/chapter-13.md
             books/live-gemini-pilot/commercial/chapter-13-quality.json
             books/live-gemini-pilot/commercial/chapter-14.md
