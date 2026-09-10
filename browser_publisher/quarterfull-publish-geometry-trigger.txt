@@ -1,0 +1,1 @@
+map private chapter publish buttons after normalization
