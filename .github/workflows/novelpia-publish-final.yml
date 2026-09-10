@@ -1,0 +1,43 @@
+name: NovelPia Publish Final Arc 11-15
+
+on:
+  push:
+    paths:
+      - "browser_publisher/novelpia-final-publish-trigger.txt"
+
+concurrency:
+  group: novelpia-publish-approved-series
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install browser dependencies
+        working-directory: browser_publisher
+        run: |
+          npm install
+          npx playwright install --with-deps chromium
+      - name: Publish frozen approved episodes 11-15
+        working-directory: browser_publisher
+        env:
+          NOVELPIA_STORAGE_STATE_B64: ${{ secrets.NOVELPIA_STORAGE_STATE_B64 }}
+          CONFIRM_PUBLISH: YES
+        shell: bash
+        run: |
+          set -euo pipefail
+          for EP in 11 12 13 14 15; do
+            echo "=== NOVELPIA EPISODE $EP ==="
+            EPISODE="$EP" node novelpia_publish_series.js
+          done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: novelpia-final-arc-publish-reports
+          path: browser_publisher/reports/novelpia-episode*-publish.json
+          retention-days: 7
